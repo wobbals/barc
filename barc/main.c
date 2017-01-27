@@ -7,7 +7,6 @@
 //
 
 #include <unistd.h>
-
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavfilter/avfiltergraph.h>
@@ -20,6 +19,7 @@
 
 #include "yuv_rgb.h"
 #include "archive_stream.h"
+#include "archive_package.h"
 #include "magic_frame.h"
 
 const int out_width = 1280;
@@ -29,10 +29,6 @@ const int out_pix_format = AV_PIX_FMT_YUV420P;
 //const char *filter_descr = "colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131";
 //const char *filter_descr = "scale=960:720";
 const char *filter_descr = "null";
-//const char *filter_descr = "fps=fps=30";
-/* other way:
- scale=78:24 [scl]; [scl] transpose=cclock // assumes "[in]" and "[out]" to be input output pads respectively
- */
 
 AVFilterContext *buffersink_ctx;
 AVFilterContext *buffersrc_ctx;
@@ -52,6 +48,7 @@ static int init_filters(const char *filters_descr)
     AVFilterInOut *inputs  = avfilter_inout_alloc();
     //AVRational time_base = dec_ctx->time_base;
     enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE };
+    AVRational out_aspect_ratio = { out_width , out_height };
 
     filter_graph = avfilter_graph_alloc();
     if (!outputs || !inputs || !filter_graph) {
@@ -59,7 +56,6 @@ static int init_filters(const char *filters_descr)
         goto end;
     }
 
-    AVRational out_aspect_ratio = { out_width , out_height };
     /* buffer video source */
     snprintf(args, sizeof(args),
              "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
@@ -194,19 +190,8 @@ int open_output_file(const char* filename)
     /* resolution must be a multiple of two */
     video_ctx_out->width = out_width;
     video_ctx_out->height = out_height;
-
-    /* frames per second */
-    //video_stream->time_base = video_ctx_out->time_base = (AVRational){1,25};
-    /* emit one intra frame every ten frames
-     * check frame pict_type before passing frame
-     * to encoder, if frame->pict_type is AV_PICTURE_TYPE_I
-     * then gop_size is ignored and the output of encoder
-     * will always be I frame irrespective to gop_size
-     */
-    // overwriting the keyframe interval just causes complaining.
-    //video_ctx_out->gop_size = 25;
-    video_ctx_out->max_b_frames = 1;
-    video_ctx_out->pix_fmt = AV_PIX_FMT_YUV420P;
+    video_ctx_out->pix_fmt = out_pix_format;
+    //video_ctx_out->max_b_frames = 1;
 
     if (codec_id == AV_CODEC_ID_H264) {
         av_opt_set(video_ctx_out->priv_data, "preset", "fast", 0);
@@ -281,89 +266,6 @@ void close_output_file()
 
 }
 
-#define ThrowWandException(wand) \
-{ \
-char \
-*description; \
-\
-ExceptionType \
-severity; \
-\
-description=MagickGetException(wand,&severity); \
-(void) fprintf(stderr,"%s %s %lu %s\n",GetMagickModule(),description); \
-description=(char *) MagickRelinquishMemory(description); \
-exit(-1); \
-}
-
-int imageMagick(AVFrame* input_frame, AVFrame* output_frame) {
-
-    MagickBooleanType
-    status;
-
-    MagickWand
-    *output_wand,
-    *input_wand;
-
-    // reset destination frame buffer and realloc
-    av_frame_unref(output_frame);
-    av_frame_copy_props(output_frame, input_frame);
-    output_frame->format = input_frame->format;
-    output_frame->width = out_width;
-    output_frame->height = out_height;
-    av_frame_get_buffer(output_frame, 1);
-
-    int rgb_bytes_per_pixel = 3; // 4 for rgba
-    uint8_t* rgb_buf_in = malloc(rgb_bytes_per_pixel * input_frame->height * input_frame->width);
-    uint8_t* rgb_buf_out = malloc(rgb_bytes_per_pixel * output_frame->height * output_frame->width);
-
-    // Convert colorspace (AVFrame YUV -> pixelbuf RGB)
-    yuv420_rgb24_sseu(input_frame->width, input_frame->height,
-                      input_frame->data[0], input_frame->data[1], input_frame->data[2],
-                      input_frame->linesize[0], input_frame->linesize[1],
-                      rgb_buf_in, input_frame->width * 3,
-                      YCBCR_709);
-
-    input_wand=NewMagickWand();
-    // import pixel buffer (there's gotta be a better way to do this)
-    status=MagickConstituteImage(input_wand,
-                                 input_frame->width,
-                                 input_frame->height,
-                                 "RGB", CharPixel, rgb_buf_in);
-    if (status == MagickFalse)
-        ThrowWandException(input_wand);
-    PixelWand* background = NewPixelWand();
-    PixelSetGreen(background, 1.0);
-    output_wand = NewMagickWand();
-    MagickNewImage(output_wand, out_width, out_height, background);
-    DestroyPixelWand(background);
-
-    // compose source frames
-    MagickCompositeImage(output_wand, input_wand, OverCompositeOp,
-                         MagickTrue, 50, 100);
-
-    input_wand=DestroyMagickWand(input_wand);
-    // push modified wand back to rgb buffer
-    MagickExportImagePixels(output_wand, 0, 0,
-                            output_frame->width,
-                            output_frame->height,
-                            "RGB", CharPixel, rgb_buf_out);
-    /*
-     Write the image then destroy it.
-     */
-    // send contrast_wand off to the frame buffer
-    rgb24_yuv420_sseu(output_frame->width, output_frame->height,
-                      rgb_buf_out, output_frame->width * rgb_bytes_per_pixel,
-                      output_frame->data[0], output_frame->data[1], output_frame->data[2],
-                      output_frame->linesize[0], output_frame->linesize[1], YCBCR_709);
-    free(rgb_buf_in);
-    free(rgb_buf_out);
-    //status=MagickWriteImages(contrast_wand,argv[2],MagickTrue);
-    //if (status == MagickFalse)
-    //    ThrowWandException(image_wand);
-    output_wand=DestroyMagickWand(output_wand);
-    return(0);
-}
-
 void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
 {
     vprintf(fmt, vargs);
@@ -375,7 +277,6 @@ int main(int argc, char **argv)
     //av_log_set_callback(my_log_callback);
 
     int ret;
-    AVFrame* input_frame;
     AVFrame* output_frame = av_frame_alloc();
 
     // Configure output frame buffer
@@ -395,31 +296,33 @@ int main(int argc, char **argv)
         perror("Could not allocate frame");
         exit(1);
     }
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s file\n", argv[0]);
-        exit(1);
-    }
 
     av_register_all();
     avfilter_register_all();
 
     MagickWandGenesis();
 
-    if ((ret = archive_stream_open(&archive_streams[0], argv[1], 9681, 29384)) < 0)
-        goto end;
-    if ((ret = archive_stream_open(&archive_streams[1], argv[2], 220, 12756)) < 0)
-        goto end;
-    if ((ret = init_filters(filter_descr)) < 0)
-        goto end;
+    struct archive_t* archive;
+    open_archive(&archive);
+
+    ret = init_filters(filter_descr);
+    if (ret < 0)
+    {
+        printf("Error: init filters\n");
+        exit(1);
+    }
 
     open_output_file("output.mp4");
 
     int64_t global_clock = 0;
+    int global_tick_time =
+    global_time_base.den / out_fps / global_time_base.num;
 
     struct archive_stream_t* active_streams[ARCHIVE_STREAMS_CT];
     int active_stream_index;
     int64_t last_stream_out = 0;
 
+    // keep an eye on when we should stop the global clock
     for (int i = 0; i < ARCHIVE_STREAMS_CT; i++) {
         struct archive_stream_t* stream = &archive_streams[i];
         if (stream->stop_offset > last_stream_out) {
@@ -427,7 +330,7 @@ int main(int argc, char **argv)
         }
     }
 
-    /* read all packets */
+    /* kick off the global clock and begin composing */
     while (1) {
         printf("global_clock: %lld\n", global_clock);
 
@@ -437,7 +340,7 @@ int main(int argc, char **argv)
         MagickWand* output_wand;
         magic_frame_start(&output_wand, out_width, out_height);
 
-        // find any streams that should present on this tick
+        // find any streams that should present content on this tick
         for (int i = 0; i < ARCHIVE_STREAMS_CT; i++) {
             struct archive_stream_t* stream = &archive_streams[i];
             if (archive_stream_is_active_at_time(stream, global_clock)) {
@@ -457,14 +360,20 @@ int main(int argc, char **argv)
             AVFrame* frame;
             archive_stream_peek_video_frame(active_streams[i], &frame,
                                             &offset_pts);
+            if (-1 == offset_pts) {
+                continue;
+            }
 
-            if (offset_pts < global_clock) {
-                // get a new frame
+            // compute how far off we are
+            int64_t delta = global_clock - offset_pts;
+            if (delta > abs(global_tick_time)) {
+                printf("Stream %d current offset vs global clock: %lld\n", i, delta);
+            }
+
+            while (offset_pts != -1 && offset_pts < global_clock) {
+                // pop frames until we catch up, hopefully not more than once.
                 archive_stream_pop_video_frame(active_streams[i], &frame,
                                                &offset_pts);
-            } else {
-                // repeat last frame again
-                printf("Repeat frame on stream %d\n", i);
             }
 
             if (frame) {
@@ -479,11 +388,12 @@ int main(int argc, char **argv)
         ret = magic_frame_finish(output_wand, output_frame);
 
         if (!ret) {
-            //imageMagick(input_frame, output_frame);
             output_frame->pts = global_clock;
 
             /* push the output frame into the filtergraph */
-            if (av_buffersrc_add_frame_flags(buffersrc_ctx, output_frame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
+            if (av_buffersrc_add_frame_flags(buffersrc_ctx, output_frame,
+                                             AV_BUFFERSRC_FLAG_KEEP_REF) < 0)
+            {
                 av_log(NULL, AV_LOG_ERROR, "Error while feeding the filtergraph\n");
                 break;
             }
@@ -499,14 +409,12 @@ int main(int argc, char **argv)
                 write_video_frame(filt_frame);
                 av_frame_unref(filt_frame);
             }
-            //av_frame_unref(input_frame);
         }
 
-        global_clock += global_time_base.den / out_fps / global_time_base.num;
+        global_clock += global_tick_time;
     }
 end:
     avfilter_graph_free(&filter_graph);
-    av_frame_free(&input_frame);
     av_frame_free(&output_frame);
     //av_frame_free(&filt_frame);
     //archive_stream_free(&archive_streams[0]);

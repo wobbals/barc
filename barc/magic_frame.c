@@ -75,7 +75,7 @@ int magic_frame_add(MagickWand* output_wand,
     // compose source frames
     MagickCompositeImage(output_wand, input_wand, OverCompositeOp,
                          MagickTrue, x_offset, y_offset);
-
+    DestroyMagickWand(input_wand);
 
     free(rgb_buf_in);
     return 0;
@@ -100,6 +100,6 @@ int magic_frame_finish(MagickWand* output_wand, AVFrame* output_frame)
                       output_frame->linesize[0], output_frame->linesize[1], YCBCR_709);
 
     free(rgb_buf_out);
-    output_wand=DestroyMagickWand(output_wand);
+    DestroyMagickWand(output_wand);
     return 0;
 }

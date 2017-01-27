@@ -11,10 +11,10 @@
 
 #include <stdio.h>
 
-struct archive_t {
-    FILE* src;
-};
+struct archive_t;
 
-void open_archive(FILE* input);
+int open_archive(struct archive_t** archive_out);
+int free_archive(struct archive_t* archive);
+
 
 #endif /* archive_package_h */

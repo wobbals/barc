@@ -11,11 +11,15 @@
 
 static const AVRational global_time_base = {1, 1000};
 
-int archive_stream_open(struct archive_stream_t* stream, const char *filename,
-                        int64_t start_offset, int64_t stop_offset)
+int archive_stream_open(struct archive_stream_t** stream_out,
+                        const char *filename,
+                        int64_t start_offset, int64_t stop_offset,
+                        const char* stream_name)
 {
     int ret;
     AVCodec *dec;
+    struct archive_stream_t* stream = calloc(1, sizeof(struct archive_stream_t));
+    *stream_out = stream;
 
     ret = avformat_open_input(&stream->format_context, filename,
                               NULL, NULL);
@@ -56,6 +60,7 @@ int archive_stream_open(struct archive_stream_t* stream, const char *filename,
     stream->current_frame_valid = 0;
     stream->start_offset = start_offset;
     stream->stop_offset = stop_offset;
+    stream->sz_name = stream_name;
 
     return 0;
 }
@@ -65,7 +70,7 @@ int archive_stream_free(struct archive_stream_t* stream)
     avcodec_close(stream->decode_context);
     avformat_close_input(&stream->format_context);
     av_frame_free(&stream->current_frame);
-
+    free(stream);
     return 0;
 }
 
@@ -83,6 +88,7 @@ int get_next_frame(struct archive_stream_t* stream)
         if (packet.stream_index == stream->video_stream_index) {
             got_frame = 0;
 
+            av_frame_unref(stream->current_frame);
             ret = avcodec_decode_video2(stream->decode_context,
                                         stream->current_frame,
                                         &got_frame, &packet);
