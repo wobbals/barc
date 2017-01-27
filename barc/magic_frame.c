@@ -41,7 +41,8 @@ int magic_frame_add(MagickWand* output_wand,
                     AVFrame* input_frame,
                     size_t x_offset,
                     size_t y_offset,
-                    double scale_coeff)
+                    size_t output_width,
+                    size_t output_height)
 {
     uint8_t* rgb_buf_in = malloc(RGB_BYTES_PER_PIXEL *
                                  input_frame->height * input_frame->width);
@@ -65,9 +66,11 @@ int magic_frame_add(MagickWand* output_wand,
                                                      CharPixel,
                                                      rgb_buf_in);
 
-    size_t width = MagickGetImageWidth(input_wand);
-    size_t height = MagickGetImageHeight(input_wand);
-    MagickScaleImage(input_wand, scale_coeff * width, scale_coeff * height);
+    // Sloooooooow
+    //MagickResampleImage(input_wand, output_width, output_height, PointFilter);
+    //MagickSampleImage(input_wand, output_width, output_height);
+    //MagickScaleImage(input_wand, scale_coeff * width, scale_coeff * height);
+    MagickResizeImage(input_wand, output_width, output_height, GaussianFilter);
 
     if (status == MagickFalse)
         ThrowWandException(input_wand);

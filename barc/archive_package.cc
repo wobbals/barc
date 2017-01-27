@@ -19,9 +19,11 @@ struct archive_t {
     FILE* source_file;
     std::vector<struct archive_stream_t*> streams;
     ArchiveLayout* layout;
+    int width;
+    int height;
 };
 
-int open_archive(struct archive_t** archive_out)
+int archive_open(struct archive_t** archive_out, int width, int height)
 {
     int ret;
     const char* first = "/Users/charley/src/barc/sample/388da791-581a-4719-a964-49a23b877e97.webm";
@@ -32,6 +34,8 @@ int open_archive(struct archive_t** archive_out)
     *archive_out = archive;
 
     archive->streams = std::vector<struct archive_stream_t*>();
+    archive->width = width;
+    archive->height = height;
 
     ret = archive_stream_open(&archive_stream, first, 9681, 29384, "388da791-581a-4719-a964-49a23b877e97");
     if (ret < 0)
@@ -49,7 +53,7 @@ int open_archive(struct archive_t** archive_out)
     }
     archive->streams.push_back(archive_stream);
 
-    ret = archive_stream_open(&archive_stream, third, 220, 12756, "dda29d9c-8b03-45cb-b9f5-375c8331532f");
+    ret = archive_stream_open(&archive_stream, third, 17580, 24538, "dda29d9c-8b03-45cb-b9f5-375c8331532f");
     if (ret < 0)
     {
         printf("Error: failed to open %s\n", third);
@@ -57,13 +61,13 @@ int open_archive(struct archive_t** archive_out)
     }
     archive->streams.push_back(archive_stream);
 
-    archive->layout = new ArchiveLayout(1280, 720);
+    archive->layout = new ArchiveLayout(width, height);
     archive->layout->setStyleSheet(Layout::kBestfitCss);
 
     return 0;
 }
 
-int free_archive(struct archive_t* archive) {
+int archive_free(struct archive_t* archive) {
     // free streams & vector
     // free layout
     // free root struct
@@ -71,15 +75,68 @@ int free_archive(struct archive_t* archive) {
     return 0;
 }
 
-int populate_stream_coords(struct archive_t* archive, int64_t global_clock)
+int archive_populate_stream_coords(struct archive_t* archive,
+                                   int64_t global_clock)
 {
     std::vector<ArchiveStreamInfo> stream_info;
     for (struct archive_stream_t* stream : archive->streams) {
-        stream_info.push_back(ArchiveStreamInfo(stream->sz_name, true));
+        if (archive_stream_is_active_at_time(stream, global_clock)) {
+            stream_info.push_back(ArchiveStreamInfo(stream->sz_name, true));
+        }
     }
+    
     StreamPositions positions = archive->layout->layout(stream_info);
     for (ComposerLayoutStreamPosition position : positions) {
-        // push positions back to stream
+        for (struct archive_stream_t* stream : archive->streams) {
+            if (!strcmp(position.stream_id.c_str(), stream->sz_name)) {
+                stream->x_offset = position.x;
+                stream->y_offset = position.y;
+                stream->render_width = position.width;
+                stream->render_height = position.height;
+            }
+        }
     }
+    return 0;
+}
+
+int64_t archive_get_finish_clock_time(struct archive_t* archive)
+{
+    int64_t finish_time = 0;
+    for (struct archive_stream_t* stream : archive->streams)
+    {
+        if (finish_time < stream->stop_offset) {
+            finish_time = stream->stop_offset;
+        }
+    }
+    return finish_time;
+}
+
+int archive_get_active_streams_for_time(struct archive_t* archive,
+                                        int64_t clock_time,
+                                        struct archive_stream_t*** streams_out,
+                                        int* num_streams_out)
+{
+    std::vector<struct archive_stream_t*> result;
+    // find any streams that should present content on this tick
+    for (struct archive_stream_t* stream : archive->streams) {
+        if (archive_stream_is_active_at_time(stream, clock_time)) {
+            result.push_back(stream);
+        }
+    }
+    *num_streams_out = (int) result.size();
+    // convert to c-style array (isn't there a vector function for this??)
+    struct archive_stream_t** streams_arr =
+    (struct archive_stream_t**)calloc(*num_streams_out,
+                                      sizeof(struct archive_stream_t*));
+    for (int i = 0; i < *num_streams_out; i++) {
+        streams_arr[i] = result[i];
+    }
+    *streams_out = streams_arr;
+    return 0;
+}
+
+int archive_free_active_streams(struct archive_stream_t* streams)
+{
+    free(streams);
     return 0;
 }

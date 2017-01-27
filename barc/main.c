@@ -33,8 +33,6 @@ const char *filter_descr = "null";
 AVFilterContext *buffersink_ctx;
 AVFilterContext *buffersrc_ctx;
 AVFilterGraph *filter_graph;
-#define ARCHIVE_STREAMS_CT 2
-struct archive_stream_t archive_streams[ARCHIVE_STREAMS_CT];
 const AVRational global_time_base = { 1, 1000 };
 const int64_t out_fps = 30;
 
@@ -303,7 +301,7 @@ int main(int argc, char **argv)
     MagickWandGenesis();
 
     struct archive_t* archive;
-    open_archive(&archive);
+    archive_open(&archive, out_width, out_height);
 
     ret = init_filters(filter_descr);
     if (ret < 0)
@@ -318,48 +316,38 @@ int main(int argc, char **argv)
     int global_tick_time =
     global_time_base.den / out_fps / global_time_base.num;
 
-    struct archive_stream_t* active_streams[ARCHIVE_STREAMS_CT];
-    int active_stream_index;
-    int64_t last_stream_out = 0;
-
-    // keep an eye on when we should stop the global clock
-    for (int i = 0; i < ARCHIVE_STREAMS_CT; i++) {
-        struct archive_stream_t* stream = &archive_streams[i];
-        if (stream->stop_offset > last_stream_out) {
-            last_stream_out = stream->stop_offset;
-        }
-    }
+    int64_t archive_finish_time = archive_get_finish_clock_time(archive);
 
     /* kick off the global clock and begin composing */
     while (1) {
         printf("global_clock: %lld\n", global_clock);
 
-        // reset active stream iterator
-        active_stream_index = 0;
+        archive_populate_stream_coords(archive, global_clock);
+
+        struct archive_stream_t** active_streams;
+        int active_stream_count;
+
+        archive_get_active_streams_for_time(archive, global_clock,
+                                            &active_streams,
+                                            &active_stream_count);
 
         MagickWand* output_wand;
         magic_frame_start(&output_wand, out_width, out_height);
 
-        // find any streams that should present content on this tick
-        for (int i = 0; i < ARCHIVE_STREAMS_CT; i++) {
-            struct archive_stream_t* stream = &archive_streams[i];
-            if (archive_stream_is_active_at_time(stream, global_clock)) {
-                active_streams[active_stream_index++] = stream;
-            }
-        }
-
         // if none, check if there's any more coming later.
-        if (!active_stream_index && last_stream_out <= global_clock) {
+        if (!active_stream_count && archive_finish_time <= global_clock) {
             printf("no more active streams. all done!\n");
             ret = AVERROR_EOF;
             break;
         }
 
-        for (int i = 0; i < active_stream_index; i++) {
+        printf("will write %d frames to magic\n", active_stream_count);
+        // append source frames to magic frame
+        for (int i = 0; i < active_stream_count; i++) {
+            struct archive_stream_t* stream = active_streams[i];
             int64_t offset_pts;
             AVFrame* frame;
-            archive_stream_peek_video_frame(active_streams[i], &frame,
-                                            &offset_pts);
+            archive_stream_peek_video_frame(stream, &frame, &offset_pts);
             if (-1 == offset_pts) {
                 continue;
             }
@@ -372,12 +360,16 @@ int main(int argc, char **argv)
 
             while (offset_pts != -1 && offset_pts < global_clock) {
                 // pop frames until we catch up, hopefully not more than once.
-                archive_stream_pop_video_frame(active_streams[i], &frame,
-                                               &offset_pts);
+                archive_stream_pop_video_frame(stream, &frame, &offset_pts);
             }
 
             if (frame) {
-                magic_frame_add(output_wand, frame, i * frame->width, 0, 1.0);
+                magic_frame_add(output_wand,
+                                frame,
+                                stream->x_offset,
+                                stream->y_offset,
+                                stream->render_width,
+                                stream->render_height);
             } else {
                 printf("Warning: Ran out of frames on stream %d. "
                        "The time is %lld. Declared finish time is %lld\n",

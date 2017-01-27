@@ -28,7 +28,8 @@ struct archive_stream_t {
     int source_height;
     int x_offset;
     int y_offset;
-    double scale_factor;
+    int render_width;
+    int render_height;
 };
 
 int archive_stream_open(struct archive_stream_t** stream_out,
@@ -45,6 +46,5 @@ int archive_stream_pop_video_frame
 
 int archive_stream_is_active_at_time(struct archive_stream_t* stream,
                                      int64_t global_time);
-
 
 #endif /* archive_stream_h */

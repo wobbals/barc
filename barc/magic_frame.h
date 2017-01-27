@@ -16,11 +16,12 @@
 
 int magic_frame_start(MagickWand** dest_wand,
                       size_t width, size_t height);
-int magic_frame_add(MagickWand* wand_out,
-                    AVFrame* frame_in,
+int magic_frame_add(MagickWand* output_wand,
+                    AVFrame* input_frame,
                     size_t x_offset,
                     size_t y_offset,
-                    double scale_coeff);
+                    size_t output_width,
+                    size_t output_height);
 int magic_frame_finish(MagickWand* wand_out, AVFrame* frame_out);
 
 #endif /* magic_frame_h */

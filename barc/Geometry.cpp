@@ -139,10 +139,10 @@ StreamPositionMap CssLayoutEngine::render(const std::vector<ArchiveStreamInfo> &
 void CssLayoutEngine::draw_object(litehtml::uint_ptr hdc, const litehtml::position& pos,
                                   const litehtml::borders& borders, const litehtml::position& draw_pos,
                                   bool root, int object_fit, std::string element_id) {
-    std::cout << __FUNCTION__
-                  << " " << pos.x << " " << pos.y << " "
-                  << pos.width << " " << pos.height
-                  << " " << root << " " << element_id;
+//    std::cout << __FUNCTION__
+//                  << " " << pos.x << " " << pos.y << " "
+//                  << pos.width << " " << pos.height
+//                  << " " << root << " " << element_id;
     int height = pos.height;
     int width = pos.width;
 
@@ -154,7 +154,7 @@ void CssLayoutEngine::draw_object(litehtml::uint_ptr hdc, const litehtml::positi
 std::shared_ptr<litehtml::element> CssLayoutEngine::create_element(const litehtml::tchar_t *tag_name,
                                                                    const litehtml::string_map &attributes,
                                                                    const std::shared_ptr<litehtml::document> &doc) {
-    std::cout << __FUNCTION__ <<  " " << tag_name;
+    //std::cout << __FUNCTION__ <<  " " << tag_name;
     if (strcmp("stream", tag_name) == 0) {
         return std::make_shared<StreamElement>(doc);
     } else if (strcmp("broadcast", tag_name) == 0) {
@@ -170,8 +170,8 @@ void CssLayoutEngine::get_client_rect(litehtml::position& client) const {
     client.y = 0;
     client.width = screen_width_;
     client.height = screen_height_;
-    std::cout << __FUNCTION__ << " " << client.x << " " << client.y << " "
-                  << client.width << " " << client.height;
+//    std::cout << __FUNCTION__ << " " << client.x << " " << client.y << " "
+//                  << client.width << " " << client.height;
 }
 
 void CssLayoutEngine::get_media_features(litehtml::media_features& media) const {
