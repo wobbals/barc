@@ -11,7 +11,8 @@
 
 static const AVRational global_time_base = {1, 1000};
 
-int archive_stream_open(struct archive_stream_t* stream, const char *filename)
+int archive_stream_open(struct archive_stream_t* stream, const char *filename,
+                        int64_t start_offset, int64_t stop_offset)
 {
     int ret;
     AVCodec *dec;
@@ -53,6 +54,8 @@ int archive_stream_open(struct archive_stream_t* stream, const char *filename)
 
     stream->current_frame = av_frame_alloc();
     stream->current_frame_valid = 0;
+    stream->start_offset = start_offset;
+    stream->stop_offset = stop_offset;
 
     return 0;
 }
@@ -83,18 +86,19 @@ int get_next_frame(struct archive_stream_t* stream)
             ret = avcodec_decode_video2(stream->decode_context,
                                         stream->current_frame,
                                         &got_frame, &packet);
-
             if (ret < 0) {
                 av_log(NULL, AV_LOG_ERROR, "Error decoding video\n");
                 break;
             }
             
             if (got_frame) {
+                stream->current_frame->pts =
+                av_frame_get_best_effort_timestamp(stream->current_frame);
                 stream->current_frame_valid = 1;
                 break;
             }
         } else if (packet.stream_index == stream->audio_stream_index) {
-            // decode audio
+            // TODO: handle audio
         }
 
         av_packet_unref(&packet);
@@ -114,7 +118,7 @@ int archive_stream_peek_video_frame
         *frame = stream->current_frame;
         *offset_pts = av_rescale_q(stream->current_frame->pts,
                                    stream->decode_context->time_base,
-                                   global_time_base);
+                                   global_time_base) + stream->start_offset;
         return 0;
     }
 }
@@ -125,4 +129,11 @@ int archive_stream_pop_video_frame
     int ret = archive_stream_peek_video_frame(stream, frame, offset_pts);
     stream->current_frame_valid = 0;
     return ret;
+}
+
+int archive_stream_is_active_at_time(struct archive_stream_t* stream,
+                                     int64_t global_time)
+{
+    return (stream->start_offset <= global_time &&
+            global_time < stream->stop_offset);
 }

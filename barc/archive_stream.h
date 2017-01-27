@@ -15,6 +15,7 @@
 
 struct archive_stream_t {
     int64_t start_offset;
+    int64_t stop_offset;
     int64_t duration;
     AVFormatContext* format_context;
     AVCodecContext* decode_context;
@@ -24,7 +25,8 @@ struct archive_stream_t {
     char current_frame_valid;
 };
 
-int archive_stream_open(struct archive_stream_t* stream, const char* path);
+int archive_stream_open(struct archive_stream_t* stream, const char* path,
+                        int64_t start_offset, int64_t stop_offset);
 int archive_stream_free(struct archive_stream_t* stream);
 
 int archive_stream_peek_video_frame
@@ -32,6 +34,9 @@ int archive_stream_peek_video_frame
 
 int archive_stream_pop_video_frame
 (struct archive_stream_t* stream, AVFrame** frame, int64_t* offset_pts);
+
+int archive_stream_is_active_at_time(struct archive_stream_t* stream,
+                                     int64_t global_time);
 
 
 #endif /* archive_stream_h */
