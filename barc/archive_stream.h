@@ -23,7 +23,8 @@ struct archive_stream_t {
     int audio_stream_index;
     AVFrame* current_frame;
     char current_frame_valid;
-    char* sz_name;
+    const char* sz_name;
+    const char* sz_class;
     int source_width;
     int source_height;
     int x_offset;
@@ -35,7 +36,8 @@ struct archive_stream_t {
 int archive_stream_open(struct archive_stream_t** stream_out,
                         const char *filename,
                         int64_t start_offset, int64_t stop_offset,
-                        const char* stream_name);
+                        const char* stream_name,
+                        const char* stream_class);
 int archive_stream_free(struct archive_stream_t* stream);
 
 int archive_stream_peek_video_frame

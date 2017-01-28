@@ -29,6 +29,22 @@ enum object_fit {
     object_fit_scale_down = 4
 };
 namespace Layout {
+    const std::string kHorizontalPresentation =
+    R"(stream {
+    float:left;
+    margin-top: 80%;
+width: 20%;
+height: 20%;
+}
+stream.focus {
+position: absolute;
+top: 0;
+left: 0;
+margin-top: 0px;
+height: 80%;
+width: 100%;
+})";
+
     // This CSS only supports up to 3x3 streams. This should be synced with the configuration file in Anvil in the future.
     const std::string kBestfitCss =
     R"(stream {

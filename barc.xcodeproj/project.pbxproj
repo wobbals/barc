@@ -218,6 +218,7 @@
 		D47018841E3BC5130040257B /* web_color.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = web_color.h; sourceTree = "<group>"; };
 		D47018BA1E3BC57F0040257B /* Geometry.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Geometry.cpp; sourceTree = "<group>"; };
 		D47018BB1E3BC57F0040257B /* Geometry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Geometry.h; sourceTree = "<group>"; };
+		D47018C01E3D27600040257B /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		D47DB34C1E3170820052418C /* barc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = barc; sourceTree = BUILT_PRODUCTS_DIR; };
 		D47DB34F1E3170820052418C /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		D47DB3571E3171990052418C /* libavcodec.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libavcodec.a; path = ../../../../usr/local/lib/libavcodec.a; sourceTree = "<group>"; };
@@ -455,6 +456,7 @@
 		D47DB3431E3170810052418C = {
 			isa = PBXGroup;
 			children = (
+				D47018C01E3D27600040257B /* README.md */,
 				D47017F91E3BC5130040257B /* ext */,
 				D47DB34E1E3170820052418C /* barc */,
 				D47DB34D1E3170820052418C /* Products */,

@@ -14,7 +14,8 @@ static const AVRational global_time_base = {1, 1000};
 int archive_stream_open(struct archive_stream_t** stream_out,
                         const char *filename,
                         int64_t start_offset, int64_t stop_offset,
-                        const char* stream_name)
+                        const char* stream_name,
+                        const char* stream_class)
 {
     int ret;
     AVCodec *dec;
@@ -61,6 +62,7 @@ int archive_stream_open(struct archive_stream_t** stream_out,
     stream->start_offset = start_offset;
     stream->stop_offset = stop_offset;
     stream->sz_name = stream_name;
+    stream->sz_class = stream_class;
 
     return 0;
 }

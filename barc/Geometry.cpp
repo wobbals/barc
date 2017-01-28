@@ -130,7 +130,16 @@ StreamPositionMap CssLayoutEngine::render(const std::vector<ArchiveStreamInfo> &
     html += + "</" + container_ + ">" +HTML_FOOTER;
     stream_positions_.clear();
     litehtml::document::ptr doc = litehtml::document::createFromUTF8(html.c_str(), this, &m_context_);
-    doc->render(screen_width_);
+    int best_width = doc->render(screen_width_, screen_height_);
+    int doc_width = doc->width();
+    if (best_width != screen_width_ || doc_width != screen_width_) {
+        printf("Warning: Rendering width mismatched. Something is wrong.\n");
+    }
+    int doc_height = doc->height();
+    if (doc_height != screen_height_) {
+        printf("Warning: Rendered height does not match container height. "
+               "Check for missing content\n");
+    }
     litehtml::position pos{0, 0, screen_width_, screen_height_};
     doc->draw(this, 0, 0, &pos);
     return stream_positions_;

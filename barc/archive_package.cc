@@ -37,7 +37,7 @@ int archive_open(struct archive_t** archive_out, int width, int height)
     archive->width = width;
     archive->height = height;
 
-    ret = archive_stream_open(&archive_stream, first, 9681, 29384, "388da791-581a-4719-a964-49a23b877e97");
+    ret = archive_stream_open(&archive_stream, first, 9681, 29384, "388da791-581a-4719-a964-49a23b877e97", "");
     if (ret < 0)
     {
         printf("Error: failed to open %s\n", first);
@@ -45,7 +45,7 @@ int archive_open(struct archive_t** archive_out, int width, int height)
     }
     archive->streams.push_back(archive_stream);
 
-    ret = archive_stream_open(&archive_stream, second, 220, 12756, "def26e29-eb3f-4472-b89a-feb27342acb7");
+    ret = archive_stream_open(&archive_stream, second, 220, 12756, "def26e29-eb3f-4472-b89a-feb27342acb7", "");
     if (ret < 0)
     {
         printf("Error: failed to open %s\n", second);
@@ -53,7 +53,7 @@ int archive_open(struct archive_t** archive_out, int width, int height)
     }
     archive->streams.push_back(archive_stream);
 
-    ret = archive_stream_open(&archive_stream, third, 17580, 24538, "dda29d9c-8b03-45cb-b9f5-375c8331532f");
+    ret = archive_stream_open(&archive_stream, third, 17580, 24538, "dda29d9c-8b03-45cb-b9f5-375c8331532f", "focus");
     if (ret < 0)
     {
         printf("Error: failed to open %s\n", third);
@@ -62,7 +62,7 @@ int archive_open(struct archive_t** archive_out, int width, int height)
     archive->streams.push_back(archive_stream);
 
     archive->layout = new ArchiveLayout(width, height);
-    archive->layout->setStyleSheet(Layout::kBestfitCss);
+    archive->layout->setStyleSheet(Layout::kHorizontalPresentation);
 
     return 0;
 }
@@ -78,10 +78,11 @@ int archive_free(struct archive_t* archive) {
 int archive_populate_stream_coords(struct archive_t* archive,
                                    int64_t global_clock)
 {
+    // Regenerate stream list every tick to allow on-the-fly layout changes
     std::vector<ArchiveStreamInfo> stream_info;
     for (struct archive_stream_t* stream : archive->streams) {
         if (archive_stream_is_active_at_time(stream, global_clock)) {
-            stream_info.push_back(ArchiveStreamInfo(stream->sz_name, true));
+            stream_info.push_back(ArchiveStreamInfo(stream->sz_name, stream->sz_class, true));
         }
     }
     
