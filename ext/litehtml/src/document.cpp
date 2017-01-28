@@ -255,7 +255,7 @@ litehtml::uint_ptr litehtml::document::get_font( const tchar_t* name, int size, 
 	return add_font(name, size, weight, style, decoration, fm);
 }
 
-int litehtml::document::render( int max_width, render_type rt )
+int litehtml::document::render( int max_width, int max_height, render_type rt )
 {
 	int ret = 0;
 	if(m_root)
@@ -266,7 +266,7 @@ int litehtml::document::render( int max_width, render_type rt )
 			m_root->render_positioned(rt);
 		} else
 		{
-			ret = m_root->render(0, 0, max_width);
+			ret = m_root->render(0, 0, max_width, max_height);
 			if(m_root->fetch_positioned())
 			{
 				m_fixed_boxes.clear();

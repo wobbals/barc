@@ -95,10 +95,10 @@ namespace litehtml
 		virtual element::ptr		select_one(const tstring& selector);
 		virtual element::ptr		select_one(const css_selector& selector);
 
-		virtual int					render(int x, int y, int max_width, bool second_pass = false);
-		virtual int					render_inline(const ptr &container, int max_width);
-		virtual int					place_element(const ptr &el, int max_width);
-		virtual void				calc_outlines( int parent_width );
+		virtual int					render(int x, int y, int max_width, int max_height, bool second_pass = false);
+		virtual int					render_inline(const ptr &container, int max_width, int max_height);
+		virtual int					place_element(const ptr &el, int max_width, int max_height);
+		virtual void				calc_outlines( int parent_width , int parent_height );
 		virtual void				calc_auto_margins(int parent_width);
 		virtual void				apply_vertical_align();
 		virtual bool				fetch_positioned();

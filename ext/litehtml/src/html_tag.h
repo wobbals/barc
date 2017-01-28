@@ -18,6 +18,12 @@ namespace litehtml
 		int top;
 		int left;
 		int right;
+        int bottom;
+
+        int height()
+        {
+            return bottom - top;
+        }
 
 		int width()
 		{
@@ -102,10 +108,10 @@ namespace litehtml
 
 		/* render functions */
 
-		virtual int					render(int x, int y, int max_width, bool second_pass = false) override;
+		virtual int					render(int x, int y, int max_width, int max_height, bool second_pass = false) override;
 
-		virtual int					render_inline(const element::ptr &container, int max_width) override;
-		virtual int					place_element(const element::ptr &el, int max_width) override;
+		virtual int					render_inline(const element::ptr &container, int max_width, int max_height) override;
+		virtual int					place_element(const element::ptr &el, int max_width, int max_height) override;
 		virtual bool				fetch_positioned() override;
 		virtual void				render_positioned(render_type rt = render_all) override;
 
@@ -169,7 +175,7 @@ namespace litehtml
 		virtual int					get_font_size() const override;
 
 		elements_vector&			children();
-		virtual void				calc_outlines(int parent_width) override;
+		virtual void				calc_outlines(int parent_width, int parent_height) override;
 		virtual void				calc_auto_margins(int parent_width) override;
 
 		virtual int					select(const css_selector& selector, bool apply_pseudo = true) override;
@@ -222,9 +228,9 @@ namespace litehtml
 	protected:
 		void						draw_children_box(uint_ptr hdc, int x, int y, const position* clip, draw_flag flag, int zindex);
 		void						draw_children_table(uint_ptr hdc, int x, int y, const position* clip, draw_flag flag, int zindex);
-		int							render_box(int x, int y, int max_width, bool second_pass = false);
-		int							render_table(int x, int y, int max_width, bool second_pass = false);
-		int							fix_line_width(int max_width, element_float flt);
+		int							render_box(int x, int y, int max_width, int max_height, bool second_pass = false);
+		int							render_table(int x, int y, int max_width, int max_height, bool second_pass = false);
+		int							fix_line_width(int max_width, int max_height, element_float flt);
 		void						parse_background();
 		void						init_background_paint( position pos, background_paint &bg_paint, const background* bg );
 		void						draw_list_marker( uint_ptr hdc, const position &pos );

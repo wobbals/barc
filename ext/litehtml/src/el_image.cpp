@@ -27,11 +27,12 @@ bool litehtml::el_image::is_replaced() const
 	return true;
 }
 
-int litehtml::el_image::render( int x, int y, int max_width, bool second_pass )
+int litehtml::el_image::render( int x, int y, int max_width, int max_height, bool second_pass )
 {
 	int parent_width = max_width;
+    int parent_height = max_height;
 
-	calc_outlines(parent_width);
+	calc_outlines(parent_width, parent_height);
 
 	m_pos.move_to(x, y);
 
