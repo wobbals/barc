@@ -79,7 +79,7 @@
 		D47DB3B01E3988470052418C /* libMagickWand-7.Q16HDRI.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D47DB3AE1E3988470052418C /* libMagickWand-7.Q16HDRI.0.dylib */; };
 		D47DB3B31E3A96900052418C /* yuv_rgb.c in Sources */ = {isa = PBXBuildFile; fileRef = D47DB3B11E3A96900052418C /* yuv_rgb.c */; };
 		D47DB3B61E3A9C060052418C /* archive_package.cc in Sources */ = {isa = PBXBuildFile; fileRef = D47DB3B41E3A9C060052418C /* archive_package.cc */; };
-		D47DB3BD1E3A9C920052418C /* archive_stream.c in Sources */ = {isa = PBXBuildFile; fileRef = D47DB3BB1E3A9C920052418C /* archive_stream.c */; };
+		D47DB3BD1E3A9C920052418C /* archive_stream.cc in Sources */ = {isa = PBXBuildFile; fileRef = D47DB3BB1E3A9C920052418C /* archive_stream.cc */; };
 		D47DB3C01E3AE6130052418C /* magic_frame.c in Sources */ = {isa = PBXBuildFile; fileRef = D47DB3BE1E3AE6130052418C /* magic_frame.c */; };
 /* End PBXBuildFile section */
 
@@ -256,7 +256,7 @@
 		D47DB3B21E3A96900052418C /* yuv_rgb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = yuv_rgb.h; sourceTree = "<group>"; };
 		D47DB3B41E3A9C060052418C /* archive_package.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = archive_package.cc; sourceTree = "<group>"; };
 		D47DB3B51E3A9C060052418C /* archive_package.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = archive_package.h; sourceTree = "<group>"; };
-		D47DB3BB1E3A9C920052418C /* archive_stream.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = archive_stream.c; sourceTree = "<group>"; };
+		D47DB3BB1E3A9C920052418C /* archive_stream.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = archive_stream.cc; sourceTree = "<group>"; };
 		D47DB3BC1E3A9C920052418C /* archive_stream.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = archive_stream.h; sourceTree = "<group>"; };
 		D47DB3BE1E3AE6130052418C /* magic_frame.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = magic_frame.c; sourceTree = "<group>"; };
 		D47DB3BF1E3AE6130052418C /* magic_frame.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = magic_frame.h; sourceTree = "<group>"; };
@@ -480,7 +480,7 @@
 				D47DB3B21E3A96900052418C /* yuv_rgb.h */,
 				D47DB3B41E3A9C060052418C /* archive_package.cc */,
 				D47DB3B51E3A9C060052418C /* archive_package.h */,
-				D47DB3BB1E3A9C920052418C /* archive_stream.c */,
+				D47DB3BB1E3A9C920052418C /* archive_stream.cc */,
 				D47DB3BC1E3A9C920052418C /* archive_stream.h */,
 				D47DB3BE1E3AE6130052418C /* magic_frame.c */,
 				D47DB3BF1E3AE6130052418C /* magic_frame.h */,
@@ -614,7 +614,7 @@
 				D47DB3B61E3A9C060052418C /* archive_package.cc in Sources */,
 				D47018A21E3BC5130040257B /* el_text.cpp in Sources */,
 				D47018971E3BC5130040257B /* el_comment.cpp in Sources */,
-				D47DB3BD1E3A9C920052418C /* archive_stream.c in Sources */,
+				D47DB3BD1E3A9C920052418C /* archive_stream.cc in Sources */,
 				D47DB3C01E3AE6130052418C /* magic_frame.c in Sources */,
 				D47018941E3BC5130040257B /* el_body.cpp in Sources */,
 				D470188B1E3BC5130040257B /* background.cpp in Sources */,

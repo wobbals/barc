@@ -142,7 +142,7 @@ int open_output_file(const char* filename)
     /* allocate the output media context */
     avformat_alloc_output_context2(&format_ctx_out, NULL, NULL, filename);
     if (!format_ctx_out) {
-        printf("Could not deduce output format from file extension: using MPEG.\n");
+        printf("Could not deduce output format from file extension.\n");
         avformat_alloc_output_context2(&format_ctx_out, NULL, "mpeg", filename);
     }
     if (!format_ctx_out) {
@@ -347,7 +347,8 @@ int main(int argc, char **argv)
             struct archive_stream_t* stream = active_streams[i];
             int64_t offset_pts;
             AVFrame* frame;
-            archive_stream_peek_video_frame(stream, &frame, &offset_pts);
+            archive_stream_peek_frame(stream, &frame, &offset_pts,
+                                      AVMEDIA_TYPE_VIDEO);
             if (-1 == offset_pts) {
                 continue;
             }
@@ -355,25 +356,32 @@ int main(int argc, char **argv)
             // compute how far off we are
             int64_t delta = global_clock - offset_pts;
             if (delta > abs(global_tick_time)) {
-                printf("Stream %d current offset vs global clock: %lld\n", i, delta);
+                printf("Stream %d current offset vs global clock: %lld\n",
+                       i, delta);
             }
 
             while (offset_pts != -1 && offset_pts < global_clock) {
                 // pop frames until we catch up, hopefully not more than once.
-                archive_stream_pop_video_frame(stream, &frame, &offset_pts);
+                archive_stream_pop_frame(stream, &frame, &offset_pts,
+                                         AVMEDIA_TYPE_VIDEO);
+                av_frame_free(&frame);
             }
+
+            // grab the next frame that hasn't been freed
+            archive_stream_peek_frame(stream, &frame, &offset_pts,
+                                      AVMEDIA_TYPE_VIDEO);
 
             if (frame) {
                 magic_frame_add(output_wand,
                                 frame,
-                                stream->x_offset,
-                                stream->y_offset,
-                                stream->render_width,
-                                stream->render_height);
+                                *archive_stream_offset_x(stream),
+                                *archive_stream_offset_y(stream),
+                                *archive_stream_render_width(stream),
+                                *archive_stream_render_height(stream));
             } else {
                 printf("Warning: Ran out of frames on stream %d. "
                        "The time is %lld. Declared finish time is %lld\n",
-                       i, global_clock, active_streams[i]->stop_offset);
+                       i, global_clock, archive_stream_get_stop_offset(stream));
             }
         }
 
@@ -386,7 +394,8 @@ int main(int argc, char **argv)
             if (av_buffersrc_add_frame_flags(buffersrc_ctx, output_frame,
                                              AV_BUFFERSRC_FLAG_KEEP_REF) < 0)
             {
-                av_log(NULL, AV_LOG_ERROR, "Error while feeding the filtergraph\n");
+                av_log(NULL, AV_LOG_ERROR,
+                       "Error while feeding the filtergraph\n");
                 break;
             }
 

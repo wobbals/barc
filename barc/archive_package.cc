@@ -82,18 +82,22 @@ int archive_populate_stream_coords(struct archive_t* archive,
     std::vector<ArchiveStreamInfo> stream_info;
     for (struct archive_stream_t* stream : archive->streams) {
         if (archive_stream_is_active_at_time(stream, global_clock)) {
-            stream_info.push_back(ArchiveStreamInfo(stream->sz_name, stream->sz_class, true));
+            stream_info.push_back
+            (ArchiveStreamInfo(archive_stream_get_name(stream),
+                               archive_stream_get_class(stream),
+                               true));
         }
     }
     
     StreamPositions positions = archive->layout->layout(stream_info);
     for (ComposerLayoutStreamPosition position : positions) {
         for (struct archive_stream_t* stream : archive->streams) {
-            if (!strcmp(position.stream_id.c_str(), stream->sz_name)) {
-                stream->x_offset = position.x;
-                stream->y_offset = position.y;
-                stream->render_width = position.width;
-                stream->render_height = position.height;
+            if (!strcmp(position.stream_id.c_str(),
+                        archive_stream_get_name(stream))) {
+                *archive_stream_offset_x(stream) = position.x;
+                *archive_stream_offset_y(stream) = position.y;
+                *archive_stream_render_width(stream) = position.width;
+                *archive_stream_render_height(stream) = position.height;
             }
         }
     }
@@ -105,8 +109,8 @@ int64_t archive_get_finish_clock_time(struct archive_t* archive)
     int64_t finish_time = 0;
     for (struct archive_stream_t* stream : archive->streams)
     {
-        if (finish_time < stream->stop_offset) {
-            finish_time = stream->stop_offset;
+        if (finish_time < archive_stream_get_stop_offset(stream)) {
+            finish_time = archive_stream_get_stop_offset(stream);
         }
     }
     return finish_time;
