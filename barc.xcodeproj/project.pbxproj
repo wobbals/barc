@@ -74,13 +74,21 @@
 		D47DB37F1E31744C0052418C /* libswscale.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D47DB37C1E31744C0052418C /* libswscale.a */; };
 		D47DB3801E31744C0052418C /* libx264.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D47DB37D1E31744C0052418C /* libx264.a */; };
 		D47DB3821E3174800052418C /* libpostproc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D47DB3811E3174800052418C /* libpostproc.a */; };
-		D47DB3AA1E395D4A0052418C /* libfaac.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D47DB3751E3173F90052418C /* libfaac.a */; };
 		D47DB3AF1E3988470052418C /* libMagickCore-7.Q16HDRI.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D47DB3AD1E3988470052418C /* libMagickCore-7.Q16HDRI.1.dylib */; };
 		D47DB3B01E3988470052418C /* libMagickWand-7.Q16HDRI.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D47DB3AE1E3988470052418C /* libMagickWand-7.Q16HDRI.0.dylib */; };
 		D47DB3B31E3A96900052418C /* yuv_rgb.c in Sources */ = {isa = PBXBuildFile; fileRef = D47DB3B11E3A96900052418C /* yuv_rgb.c */; };
 		D47DB3B61E3A9C060052418C /* archive_package.cc in Sources */ = {isa = PBXBuildFile; fileRef = D47DB3B41E3A9C060052418C /* archive_package.cc */; };
 		D47DB3BD1E3A9C920052418C /* archive_stream.cc in Sources */ = {isa = PBXBuildFile; fileRef = D47DB3BB1E3A9C920052418C /* archive_stream.cc */; };
 		D47DB3C01E3AE6130052418C /* magic_frame.c in Sources */ = {isa = PBXBuildFile; fileRef = D47DB3BE1E3AE6130052418C /* magic_frame.c */; };
+		D49D2CCC1E40471C005096BF /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CCB1E40471C005096BF /* libopus.a */; };
+		D49D2CCE1E4049C6005096BF /* VideoToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CCD1E4049C6005096BF /* VideoToolbox.framework */; };
+		D49D2CD01E4049D5005096BF /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CCF1E4049D5005096BF /* CoreGraphics.framework */; };
+		D49D2CD21E4049DF005096BF /* CoreMedia.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD11E4049DF005096BF /* CoreMedia.framework */; };
+		D49D2CD41E4049EE005096BF /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD31E4049EE005096BF /* CoreImage.framework */; };
+		D49D2CD61E4049F5005096BF /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD51E4049F5005096BF /* AudioToolbox.framework */; };
+		D49D2CD81E404A14005096BF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD71E404A14005096BF /* Foundation.framework */; };
+		D49D2CDA1E404A2E005096BF /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD91E404A2E005096BF /* AppKit.framework */; };
+		D49D2CDC1E404A4B005096BF /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CDB1E404A4B005096BF /* OpenGL.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -260,6 +268,15 @@
 		D47DB3BC1E3A9C920052418C /* archive_stream.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = archive_stream.h; sourceTree = "<group>"; };
 		D47DB3BE1E3AE6130052418C /* magic_frame.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = magic_frame.c; sourceTree = "<group>"; };
 		D47DB3BF1E3AE6130052418C /* magic_frame.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = magic_frame.h; sourceTree = "<group>"; };
+		D49D2CCB1E40471C005096BF /* libopus.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libopus.a; path = ../../../../usr/local/Cellar/opus/1.1.4/lib/libopus.a; sourceTree = "<group>"; };
+		D49D2CCD1E4049C6005096BF /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = System/Library/Frameworks/VideoToolbox.framework; sourceTree = SDKROOT; };
+		D49D2CCF1E4049D5005096BF /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		D49D2CD11E4049DF005096BF /* CoreMedia.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMedia.framework; path = System/Library/Frameworks/CoreMedia.framework; sourceTree = SDKROOT; };
+		D49D2CD31E4049EE005096BF /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = System/Library/Frameworks/CoreImage.framework; sourceTree = SDKROOT; };
+		D49D2CD51E4049F5005096BF /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		D49D2CD71E404A14005096BF /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		D49D2CD91E404A2E005096BF /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		D49D2CDB1E404A4B005096BF /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -267,9 +284,17 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D49D2CDC1E404A4B005096BF /* OpenGL.framework in Frameworks */,
+				D49D2CDA1E404A2E005096BF /* AppKit.framework in Frameworks */,
+				D49D2CD81E404A14005096BF /* Foundation.framework in Frameworks */,
+				D49D2CD61E4049F5005096BF /* AudioToolbox.framework in Frameworks */,
+				D49D2CD41E4049EE005096BF /* CoreImage.framework in Frameworks */,
+				D49D2CD21E4049DF005096BF /* CoreMedia.framework in Frameworks */,
+				D49D2CD01E4049D5005096BF /* CoreGraphics.framework in Frameworks */,
+				D49D2CCE1E4049C6005096BF /* VideoToolbox.framework in Frameworks */,
+				D49D2CCC1E40471C005096BF /* libopus.a in Frameworks */,
 				D47DB3AF1E3988470052418C /* libMagickCore-7.Q16HDRI.1.dylib in Frameworks */,
 				D47DB3B01E3988470052418C /* libMagickWand-7.Q16HDRI.0.dylib in Frameworks */,
-				D47DB3AA1E395D4A0052418C /* libfaac.a in Frameworks */,
 				D47DB3821E3174800052418C /* libpostproc.a in Frameworks */,
 				D47DB37E1E31744C0052418C /* libswresample.a in Frameworks */,
 				D47DB37F1E31744C0052418C /* libswscale.a in Frameworks */,
@@ -493,6 +518,15 @@
 		D47DB3561E3171990052418C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D49D2CDB1E404A4B005096BF /* OpenGL.framework */,
+				D49D2CD91E404A2E005096BF /* AppKit.framework */,
+				D49D2CD71E404A14005096BF /* Foundation.framework */,
+				D49D2CD51E4049F5005096BF /* AudioToolbox.framework */,
+				D49D2CD31E4049EE005096BF /* CoreImage.framework */,
+				D49D2CD11E4049DF005096BF /* CoreMedia.framework */,
+				D49D2CCF1E4049D5005096BF /* CoreGraphics.framework */,
+				D49D2CCD1E4049C6005096BF /* VideoToolbox.framework */,
+				D49D2CCB1E40471C005096BF /* libopus.a */,
 				D47DB3AD1E3988470052418C /* libMagickCore-7.Q16HDRI.1.dylib */,
 				D47DB3AE1E3988470052418C /* libMagickWand-7.Q16HDRI.0.dylib */,
 				D47DB3AB1E3983C70052418C /* libMagick++-7.Q16HDRI.1.dylib */,
@@ -761,6 +795,7 @@
 					/usr/local/Cellar/faac/1.28/lib,
 					/usr/local/Cellar/lame/3.99.5/lib,
 					/usr/local/Cellar/x264/r2533/lib,
+					/usr/local/Cellar/opus/1.1.4/lib,
 				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -776,6 +811,7 @@
 					/usr/local/Cellar/faac/1.28/lib,
 					/usr/local/Cellar/lame/3.99.5/lib,
 					/usr/local/Cellar/x264/r2533/lib,
+					/usr/local/Cellar/opus/1.1.4/lib,
 				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";

@@ -53,6 +53,11 @@ static int archive_open_codec(AVFormatContext* format_context,
                "Cannot find a video stream in the input file\n");
         return ret;
     }
+    // prefer libopus over built-in opus
+    if (AV_CODEC_ID_OPUS == dec->id && strcmp("libopus", dec->name)) {
+        printf("Switch from %s to libopus\n", dec->name);
+        dec = avcodec_find_decoder_by_name("libopus");
+    }
     *stream_index = ret;
     *codec_context = format_context->streams[*stream_index]->codec;
 
@@ -103,6 +108,8 @@ int archive_stream_open(struct archive_stream_t** stream_out,
                        AVMEDIA_TYPE_AUDIO,
                        &stream->audio_context,
                        &stream->audio_stream_index);
+
+    stream->audio_context->request_sample_fmt = AV_SAMPLE_FMT_S16;
 
     stream->video_fifo = std::queue<AVFrame*>();
     stream->audio_fifo = std::queue<AVFrame*>();
@@ -160,7 +167,6 @@ static int get_next_frame(struct archive_stream_t* stream)
                 stream->video_fifo.push(frame);
             }
         } else if (packet.stream_index == stream->audio_stream_index) {
-            //printf("audio pts %lld\n", packet.pts);
             got_frame = 0;
             ret = avcodec_decode_audio4(stream->audio_context, frame,
                                         &got_frame, &packet);
@@ -204,16 +210,20 @@ int archive_stream_peek_frame(struct archive_stream_t* stream,
 
     if (!queue.empty()) {
         *frame = queue.front();
-        *offset_pts = av_rescale_q((*frame)->pts,
-                                   codec_context->time_base,
-                                   global_time_base) + stream->start_offset;
+        //printf("%p peek %d pts %lld\n", stream, media_type, (*frame)->pts);
+        *offset_pts = (*frame)->pts + stream->start_offset;
+        // round down to the nearest packet interval for easier math
+        if ((*frame)->pkt_duration > 0) {
+            int64_t round = *offset_pts % ((*frame)->pkt_duration);
+            *offset_pts -= round;
+        }
         return 0;
     } else if (get_next_frame(stream)) {
         *frame = NULL;
         *offset_pts = -1;
         return AVERROR_EOF;
     } else {
-        // try again
+        // try again. hopefully we should not need to pump many frames.
         return archive_stream_peek_frame(stream, frame, offset_pts, media_type);
     }
 }
