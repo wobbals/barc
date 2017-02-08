@@ -89,6 +89,7 @@
 		D49D2CD81E404A14005096BF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD71E404A14005096BF /* Foundation.framework */; };
 		D49D2CDA1E404A2E005096BF /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD91E404A2E005096BF /* AppKit.framework */; };
 		D49D2CDC1E404A4B005096BF /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CDB1E404A4B005096BF /* OpenGL.framework */; };
+		D4F5FAB21E4253BA00328734 /* audio_mixer.cc in Sources */ = {isa = PBXBuildFile; fileRef = D4F5FAB01E4253BA00328734 /* audio_mixer.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -277,6 +278,8 @@
 		D49D2CD71E404A14005096BF /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		D49D2CD91E404A2E005096BF /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		D49D2CDB1E404A4B005096BF /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
+		D4F5FAB01E4253BA00328734 /* audio_mixer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = audio_mixer.cc; sourceTree = "<group>"; };
+		D4F5FAB11E4253BA00328734 /* audio_mixer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = audio_mixer.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -511,6 +514,8 @@
 				D47DB3BF1E3AE6130052418C /* magic_frame.h */,
 				D47018BA1E3BC57F0040257B /* Geometry.cpp */,
 				D47018BB1E3BC57F0040257B /* Geometry.h */,
+				D4F5FAB01E4253BA00328734 /* audio_mixer.cc */,
+				D4F5FAB11E4253BA00328734 /* audio_mixer.h */,
 			);
 			path = barc;
 			sourceTree = "<group>";
@@ -626,6 +631,7 @@
 				D470189C1E3BC5130040257B /* el_para.cpp in Sources */,
 				D47018A41E3BC5130040257B /* el_tr.cpp in Sources */,
 				D47018AF1E3BC5130040257B /* util.c in Sources */,
+				D4F5FAB21E4253BA00328734 /* audio_mixer.cc in Sources */,
 				D47018901E3BC5130040257B /* document.cpp in Sources */,
 				D47018A71E3BC5130040257B /* char_ref.c in Sources */,
 				D47018A01E3BC5130040257B /* el_table.cpp in Sources */,

@@ -9,11 +9,12 @@
 extern "C" {
 #include "archive_stream.h"
 #include <libavutil/opt.h>
+#include <libavutil/audio_fifo.h>
+#include <assert.h>
 }
 
 #include <queue>
-
-static const AVRational global_time_base = {1, 1000};
+#include <deque>
 
 struct archive_stream_t {
     int64_t start_offset;
@@ -25,7 +26,9 @@ struct archive_stream_t {
     int video_stream_index;
     int audio_stream_index;
     std::queue<AVFrame*> video_fifo;
-    std::queue<AVFrame*> audio_fifo;
+    std::deque<AVFrame*> audio_frame_fifo;
+
+    AVAudioFifo* audio_sample_fifo;
 
     const char* sz_name;
     const char* sz_class;
@@ -109,14 +112,17 @@ int archive_stream_open(struct archive_stream_t** stream_out,
                        &stream->audio_context,
                        &stream->audio_stream_index);
 
+    assert(stream->audio_context->sample_fmt = AV_SAMPLE_FMT_S16);
     stream->audio_context->request_sample_fmt = AV_SAMPLE_FMT_S16;
 
     stream->video_fifo = std::queue<AVFrame*>();
-    stream->audio_fifo = std::queue<AVFrame*>();
+    stream->audio_frame_fifo = std::deque<AVFrame*>();
     stream->start_offset = start_offset;
     stream->stop_offset = stop_offset;
     stream->sz_name = stream_name;
     stream->sz_class = stream_class;
+    // should this be dynamic?
+    stream->audio_sample_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_S16, 1, 4098);
 
     return 0;
 }
@@ -128,14 +134,15 @@ int archive_stream_free(struct archive_stream_t* stream)
         stream->video_fifo.pop();
         av_frame_free(&frame);
     }
-    while (!stream->audio_fifo.empty()) {
-        AVFrame* frame = stream->audio_fifo.front();
-        stream->audio_fifo.pop();
+    while (!stream->audio_frame_fifo.empty()) {
+        AVFrame* frame = stream->audio_frame_fifo.front();
+        stream->audio_frame_fifo.pop_front();
         av_frame_free(&frame);
     }
     avcodec_close(stream->video_context);
     avcodec_close(stream->audio_context);
     avformat_close_input(&stream->format_context);
+    av_audio_fifo_free(stream->audio_sample_fifo);
     free(stream);
     return 0;
 }
@@ -146,7 +153,7 @@ static int get_next_frame(struct archive_stream_t* stream)
     AVPacket packet = { 0 };
 
     /* pump packet reader until both fifos are populated */
-    while (stream->audio_fifo.empty() || stream->video_fifo.empty()) {
+    while (stream->audio_frame_fifo.empty() || stream->video_fifo.empty()) {
         ret = av_read_frame(stream->format_context, &packet);
         if (ret < 0) {
             return ret;
@@ -177,7 +184,7 @@ static int get_next_frame(struct archive_stream_t* stream)
 
             if (got_frame) {
                 frame->pts = av_frame_get_best_effort_timestamp(frame);
-                stream->audio_fifo.push(frame);
+                stream->audio_frame_fifo.push_back(frame);
             }
         } else {
             av_frame_free(&frame);
@@ -189,24 +196,12 @@ static int get_next_frame(struct archive_stream_t* stream)
     return !got_frame;
 }
 
-int archive_stream_peek_frame(struct archive_stream_t* stream,
+int archive_stream_peek_video(struct archive_stream_t* stream,
                               AVFrame** frame,
-                              int64_t* offset_pts,
-                              enum AVMediaType media_type)
+                              int64_t* offset_pts)
 {
-    std::queue<AVFrame*> queue;
-    AVCodecContext* codec_context;
-    if (AVMEDIA_TYPE_AUDIO == media_type) {
-        queue = stream->audio_fifo;
-        codec_context = stream->audio_context;
-    } else if (AVMEDIA_TYPE_VIDEO == media_type) {
-        queue = stream->video_fifo;
-        codec_context = stream->video_context;
-    } else {
-        printf("No queue for media type %d\n", media_type);
-        return -1;
-    }
-
+    std::queue<AVFrame*> queue = stream->video_fifo;
+    AVCodecContext* codec_context = stream->video_context;
 
     if (!queue.empty()) {
         *frame = queue.front();
@@ -224,27 +219,141 @@ int archive_stream_peek_frame(struct archive_stream_t* stream,
         return AVERROR_EOF;
     } else {
         // try again. hopefully we should not need to pump many frames.
-        return archive_stream_peek_frame(stream, frame, offset_pts, media_type);
+        return archive_stream_peek_video(stream, frame, offset_pts);
     }
 }
 
-int archive_stream_pop_frame(struct archive_stream_t* stream,
-                                   AVFrame** frame,
-                                   int64_t* offset_pts,
-                                   enum AVMediaType media_type)
+int archive_stream_pop_video(struct archive_stream_t* stream,
+                             AVFrame** frame,
+                             int64_t* offset_pts)
 {
-    int ret = archive_stream_peek_frame(stream, frame, offset_pts, media_type);
+    int ret = archive_stream_peek_video(stream, frame, offset_pts);
     if (ret < 0) {
         return ret;
     }
-    if (AVMEDIA_TYPE_VIDEO == media_type) {
-        stream->video_fifo.pop();
-    } else if (AVMEDIA_TYPE_AUDIO == media_type) {
-        stream->audio_fifo.pop();
-    }  else {
-        printf("Unknown media type for pop %d\n", media_type);
-        return -1;
+    stream->video_fifo.pop();
+    return ret;
+}
+
+static void insert_silence(struct archive_stream_t* stream,
+                          int64_t num_samples,
+                           int64_t from_pts, int64_t to_pts)
+{
+    AVFrame* silence = av_frame_alloc();
+    silence->sample_rate = stream->audio_context->sample_rate;
+    silence->nb_samples = (int)num_samples;
+    silence->format = stream->audio_context->sample_fmt;
+    av_frame_get_buffer(silence, 1);
+    silence->pts = from_pts;
+    silence->pkt_duration = to_pts - from_pts;
+
+    stream->audio_frame_fifo.push_front(silence);
+}
+
+static inline int64_t samples_per_pts(int sample_rate, int64_t pts,
+                                      AVRational time_base)
+{
+    // (duration * time_base) * (sample_rate) == sample_count
+    // (20 / 1000) * 48000 == 960
+    return av_rescale_q(pts, time_base, { sample_rate, 1});
+}
+
+static inline float pts_per_sample(float sample_rate, float num_samples,
+                                   AVRational time_base)
+{
+    // (duration * time_base) * (sample_rate) == sample_count
+    // (20 / 1000) * 48000 == 960
+    return
+    num_samples * ((float)time_base.den / (float)time_base.num) / sample_rate;
+}
+
+// shortcut for frequent checks to the frame fifo
+static int ensure_audio_frames(struct archive_stream_t* stream) {
+    int ret = 0;
+    if (stream->audio_frame_fifo.empty()) {
+        ret = get_next_frame(stream);
     }
+    return ret;
+}
+
+// ensures contiguous frames available to the sample fifo
+static int audio_frame_fifo_pop(struct archive_stream_t* stream) {
+    int ret = ensure_audio_frames(stream);
+    if (ret) {
+        return ret;
+    }
+
+    // release the previous head of the queue
+    AVFrame* old_frame = stream->audio_frame_fifo.front();
+    stream->audio_frame_fifo.pop_front();
+
+    // once again, make sure there's more data available
+    ret = ensure_audio_frames(stream);
+    if (ret) {
+        return ret;
+    }
+
+    AVFrame* new_frame = stream->audio_frame_fifo.front();
+    // insert silence if we detect a lapse in audio continuity
+    if ((new_frame->pts - old_frame->pts) > old_frame->pkt_duration) {
+        int64_t num_samples =
+        samples_per_pts(stream->audio_context->sample_rate,
+                        new_frame->pts - old_frame->pts -
+                        old_frame->pkt_duration,
+                        stream->audio_context->time_base);
+        if (num_samples > 0) {
+            insert_silence(stream, num_samples, old_frame->pts, new_frame->pts);
+        }
+    }
+
+    av_frame_free(&old_frame);
+
+    return ret;
+}
+
+// pops frames off the frame fifo and copies samples to sample fifo
+static int get_more_audio_samples(struct archive_stream_t* stream) {
+    int ret = ensure_audio_frames(stream);
+    AVFrame* frame = NULL;
+    if (ret) {
+        return ret;
+    }
+    frame = stream->audio_frame_fifo.front();
+    // consume the frame completely
+    if (frame) {
+        ret = av_audio_fifo_write(stream->audio_sample_fifo,
+                                  (void**)frame->data, frame->nb_samples);
+    }
+    ret = audio_frame_fifo_pop(stream);
+    return ret;
+}
+
+int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
+                                     int num_samples,
+                                     enum AVSampleFormat format,
+                                     int sample_rate,
+                                     int16_t** samples_out)
+{
+    int ret = 0;
+
+    // TODO: This needs to be aware of the sample rate and format of the
+    // receiver
+    assert(48000 == sample_rate);
+    assert(format == AV_SAMPLE_FMT_S16);
+
+    while (num_samples > av_audio_fifo_size(stream->audio_sample_fifo) && !ret)
+    {
+        ret = get_more_audio_samples(stream);
+    }
+
+    if (ret) {
+        printf("can't get more samples");
+        return ret;
+    }
+
+    ret = av_audio_fifo_read(stream->audio_sample_fifo,
+                             (void**)samples_out, num_samples);
+
     return ret;
 }
 

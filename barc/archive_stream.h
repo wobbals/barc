@@ -22,15 +22,19 @@ int archive_stream_open(struct archive_stream_t** stream_out,
                         const char* stream_class);
 int archive_stream_free(struct archive_stream_t* stream);
 
-int archive_stream_peek_frame(struct archive_stream_t* stream,
+int archive_stream_peek_video(struct archive_stream_t* stream,
                               AVFrame** frame,
-                              int64_t* offset_pts,
-                              enum AVMediaType media_type);
+                              int64_t* offset_pts);
 
-int archive_stream_pop_frame(struct archive_stream_t* stream,
+int archive_stream_pop_video(struct archive_stream_t* stream,
                              AVFrame** frame,
-                             int64_t* offset_pts,
-                             enum AVMediaType media_type);
+                             int64_t* offset_pts);
+
+int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
+                                     int num_samples,
+                                     enum AVSampleFormat format,
+                                     int sample_rate,
+                                     int16_t** samples_out);
 
 int archive_stream_is_active_at_time(struct archive_stream_t* stream,
                                      int64_t global_time);

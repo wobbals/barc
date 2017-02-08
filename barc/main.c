@@ -13,7 +13,7 @@
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
 #include <libavutil/opt.h>
-#include <libavutil/fifo.h>
+#include <libavutil/audio_fifo.h>
 #include <libswresample/swresample.h>
 #include <assert.h>
 #include <MagickWand/MagickWand.h>
@@ -22,25 +22,153 @@
 #include "archive_stream.h"
 #include "archive_package.h"
 #include "magic_frame.h"
+#include "audio_mixer.h"
 
 const int out_width = 1280;
 const int out_height = 720;
 const int out_pix_format = AV_PIX_FMT_YUV420P;
 const int out_audio_format = AV_SAMPLE_FMT_FLTP;
+const int src_audio_format = AV_SAMPLE_FMT_S16;
+const int out_audio_num_channels = 1;
 
-//const char *filter_descr = "colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131";
-//const char *filter_descr = "scale=960:720";
-const char *filter_descr = "null";
+const char *video_filter_descr = "null";
+const char *audio_filter_descr = "aresample=48000,aformat=sample_fmts=s16:channel_layouts=mono";
 
-AVFilterContext *buffersink_ctx;
-AVFilterContext *buffersrc_ctx;
-AVFilterGraph *filter_graph;
+AVFilterContext *audio_buffersink_ctx;
+AVFilterContext *audio_buffersrc_ctx;
+AVFilterContext *video_buffersink_ctx;
+AVFilterContext *video_buffersrc_ctx;
+AVFilterGraph *video_filter_graph;
+AVFilterGraph *audio_filter_graph;
 const AVRational global_time_base = { 1, 1000 };
 const int64_t out_video_fps = 30;
-const int64_t out_audio_fps = 50; // Assume 20 ms frames
 const int64_t out_sample_rate = 48000;
+static AVCodec* video_codec_out;
+static AVCodec* audio_codec_out;
+static AVCodecContext* video_ctx_out;
+static AVCodecContext* audio_ctx_out;
+static AVFormatContext* format_ctx_out;
+static AVStream* video_stream;
+static AVStream* audio_stream;
+static int64_t video_frame_ct;
+static int64_t audio_frame_ct;
+AVAudioFifo* audio_fifo;
 
-static int init_filters(const char *filters_descr)
+static int init_audio_filters(const char *filters_descr)
+{
+    char args[512];
+    int ret = 0;
+    AVFilter *abuffersrc  = avfilter_get_by_name("abuffer");
+    AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
+    AVFilterInOut *outputs = avfilter_inout_alloc();
+    AVFilterInOut *inputs  = avfilter_inout_alloc();
+    static const enum AVSampleFormat out_sample_fmts[] = { out_audio_format, -1 };
+    static const int64_t out_channel_layouts[] = { AV_CH_LAYOUT_MONO, -1 };
+    static const int out_sample_rates[] = { 48000, -1 };
+    const AVFilterLink *outlink;
+    AVRational time_base = { 1, out_sample_rate };
+
+    audio_filter_graph = avfilter_graph_alloc();
+    if (!outputs || !inputs || !audio_filter_graph) {
+        ret = AVERROR(ENOMEM);
+        goto end;
+    }
+
+    /* buffer audio source: the decoded frames from the decoder will be inserted here. */
+    if (!audio_ctx_out->channel_layout)
+        audio_ctx_out->channel_layout = av_get_default_channel_layout(audio_ctx_out->channels);
+    snprintf(args, sizeof(args),
+             "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
+             time_base.num, time_base.den, audio_ctx_out->sample_rate,
+             av_get_sample_fmt_name(audio_ctx_out->sample_fmt), audio_ctx_out->channel_layout);
+    ret = avfilter_graph_create_filter(&audio_buffersrc_ctx, abuffersrc, "in",
+                                       args, NULL, audio_filter_graph);
+    if (ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Cannot create audio buffer source\n");
+        goto end;
+    }
+
+    /* buffer audio sink: to terminate the filter chain. */
+    ret = avfilter_graph_create_filter(&audio_buffersink_ctx, abuffersink, "out",
+                                       NULL, NULL, audio_filter_graph);
+    if (ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Cannot create audio buffer sink\n");
+        goto end;
+    }
+
+    ret = av_opt_set_int_list(audio_buffersink_ctx, "sample_fmts", out_sample_fmts, -1,
+                              AV_OPT_SEARCH_CHILDREN);
+    if (ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Cannot set output sample format\n");
+        goto end;
+    }
+
+    ret = av_opt_set_int_list(audio_buffersink_ctx, "channel_layouts", out_channel_layouts, -1,
+                              AV_OPT_SEARCH_CHILDREN);
+    if (ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Cannot set output channel layout\n");
+        goto end;
+    }
+
+    ret = av_opt_set_int_list(audio_buffersink_ctx, "sample_rates", out_sample_rates, -1,
+                              AV_OPT_SEARCH_CHILDREN);
+    if (ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Cannot set output sample rate\n");
+        goto end;
+    }
+
+    /*
+     * Set the endpoints for the filter graph. The filter_graph will
+     * be linked to the graph described by filters_descr.
+     */
+
+    /*
+     * The buffer source output must be connected to the input pad of
+     * the first filter described by filters_descr; since the first
+     * filter input label is not specified, it is set to "in" by
+     * default.
+     */
+    outputs->name       = av_strdup("in");
+    outputs->filter_ctx = audio_buffersrc_ctx;
+    outputs->pad_idx    = 0;
+    outputs->next       = NULL;
+
+    /*
+     * The buffer sink input must be connected to the output pad of
+     * the last filter described by filters_descr; since the last
+     * filter output label is not specified, it is set to "out" by
+     * default.
+     */
+    inputs->name       = av_strdup("out");
+    inputs->filter_ctx = audio_buffersink_ctx;
+    inputs->pad_idx    = 0;
+    inputs->next       = NULL;
+
+    if ((ret = avfilter_graph_parse_ptr(audio_filter_graph, filters_descr,
+                                        &inputs, &outputs, NULL)) < 0)
+        goto end;
+
+    if ((ret = avfilter_graph_config(audio_filter_graph, NULL)) < 0)
+        goto end;
+
+    /* Print summary of the sink buffer
+     * Note: args buffer is reused to store channel layout string */
+    outlink = audio_buffersink_ctx->inputs[0];
+    av_get_channel_layout_string(args, sizeof(args), -1, outlink->channel_layout);
+    av_log(NULL, AV_LOG_INFO, "Output: srate:%dHz fmt:%s chlayout:%s\n",
+           (int)outlink->sample_rate,
+           (char *)av_x_if_null(av_get_sample_fmt_name(outlink->format), "?"),
+           args);
+
+end:
+    avfilter_inout_free(&inputs);
+    avfilter_inout_free(&outputs);
+    
+    return ret;
+}
+
+
+static int init_video_filters(const char *filters_descr)
 {
     char args[512];
     int ret = 0;
@@ -52,8 +180,8 @@ static int init_filters(const char *filters_descr)
     enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE };
     AVRational out_aspect_ratio = { out_width , out_height };
 
-    filter_graph = avfilter_graph_alloc();
-    if (!outputs || !inputs || !filter_graph) {
+    video_filter_graph = avfilter_graph_alloc();
+    if (!outputs || !inputs || !video_filter_graph) {
         ret = AVERROR(ENOMEM);
         goto end;
     }
@@ -68,22 +196,22 @@ static int init_filters(const char *filters_descr)
              out_aspect_ratio.num,
              out_aspect_ratio.den);
 
-    ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in",
-                                       args, NULL, filter_graph);
+    ret = avfilter_graph_create_filter(&video_buffersrc_ctx, buffersrc, "in",
+                                       args, NULL, video_filter_graph);
     if (ret < 0) {
         av_log(NULL, AV_LOG_ERROR, "Cannot create buffer source\n");
         goto end;
     }
 
     /* buffer video sink: to terminate the filter chain. */
-    ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out",
-                                       NULL, NULL, filter_graph);
+    ret = avfilter_graph_create_filter(&video_buffersink_ctx, buffersink, "out",
+                                       NULL, NULL, video_filter_graph);
     if (ret < 0) {
         av_log(NULL, AV_LOG_ERROR, "Cannot create buffer sink\n");
         goto end;
     }
 
-    ret = av_opt_set_int_list(buffersink_ctx, "pix_fmts", pix_fmts,
+    ret = av_opt_set_int_list(video_buffersink_ctx, "pix_fmts", pix_fmts,
                               AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
     if (ret < 0) {
         av_log(NULL, AV_LOG_ERROR, "Cannot set output pixel format\n");
@@ -102,7 +230,7 @@ static int init_filters(const char *filters_descr)
      * default.
      */
     outputs->name       = av_strdup("in");
-    outputs->filter_ctx = buffersrc_ctx;
+    outputs->filter_ctx = video_buffersrc_ctx;
     outputs->pad_idx    = 0;
     outputs->next       = NULL;
 
@@ -113,18 +241,18 @@ static int init_filters(const char *filters_descr)
      * default.
      */
     inputs->name       = av_strdup("out");
-    inputs->filter_ctx = buffersink_ctx;
+    inputs->filter_ctx = video_buffersink_ctx;
     inputs->pad_idx    = 0;
     inputs->next       = NULL;
 
-    if ((ret = avfilter_graph_parse_ptr(filter_graph, filters_descr,
+    if ((ret = avfilter_graph_parse_ptr(video_filter_graph, filters_descr,
                                         &inputs, &outputs, NULL)) < 0)
         goto end;
 
-    if ((ret = avfilter_graph_config(filter_graph, NULL)) < 0)
+    if ((ret = avfilter_graph_config(video_filter_graph, NULL)) < 0)
         goto end;
 
-    printf("%s\n", avfilter_graph_dump(filter_graph, NULL));
+    printf("%s\n", avfilter_graph_dump(video_filter_graph, NULL));
 end:
     avfilter_inout_free(&inputs);
     avfilter_inout_free(&outputs);
@@ -167,7 +295,7 @@ static int init_resampler(AVCodecContext *input_codec_context,
      * not greater than the number of samples to be converted.
      * If the sample rates differ, this case has to be handled differently
      */
-    av_assert0(output_codec_context->sample_rate == input_codec_context->sample_rate);
+    assert(output_codec_context->sample_rate == input_codec_context->sample_rate);
 
     /** Open the resampler with the specified parameters. */
     if ((error = swr_init(*resample_context)) < 0) {
@@ -177,17 +305,6 @@ static int init_resampler(AVCodecContext *input_codec_context,
     }
     return 0;
 }
-
-
-static AVCodec* video_codec_out;
-static AVCodec* audio_codec_out;
-static AVCodecContext* video_ctx_out;
-static AVCodecContext* audio_ctx_out;
-static AVFormatContext* format_ctx_out;
-static AVStream* video_stream;
-static AVStream* audio_stream;
-static int64_t video_frame_ct;
-static int64_t audio_frame_ct;
 
 int open_output_file(const char* filename)
 {
@@ -289,6 +406,9 @@ int open_output_file(const char* filename)
         exit(1);
     }
 
+    audio_fifo = av_audio_fifo_alloc(out_audio_format, out_audio_num_channels,
+                                     audio_ctx_out->frame_size * 2);
+
     /* Write the stream header, if any. */
     ret = avformat_write_header(format_ctx_out, &opt);
     if (ret < 0) {
@@ -322,8 +442,8 @@ static int write_audio_frame(AVFrame* frame)
         pkt.stream_index = audio_stream->index;
 
         /* Write the compressed frame to the media file. */
-        printf("Write audio frame %lld, size=%d pts=%lld\n",
-               audio_frame_ct, pkt.size, pkt.pts);
+        printf("Write audio frame %lld, size=%d pts=%lld duration=%lld\n",
+               audio_frame_ct, pkt.size, pkt.pts, pkt.duration);
         audio_frame_ct++;
         ret = av_interleaved_write_frame(format_ctx_out, &pkt);
 
@@ -331,6 +451,28 @@ static int write_audio_frame(AVFrame* frame)
         ret = 0;
     }
     av_free_packet(&pkt);
+    return ret;
+}
+
+// inserts audio frame into filtergraph
+static int push_audio_frame(AVFrame* frame) {
+    int ret;
+    AVFrame *filt_frame = av_frame_alloc();
+    ret = av_buffersrc_add_frame_flags(audio_buffersrc_ctx, frame, 0);
+    if (ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Error while feeding the audio filtergraph\n");
+    }
+
+    /* pull filtered audio from the filtergraph */
+    while (0 == ret) {
+        ret = av_buffersink_get_frame(audio_buffersink_ctx, filt_frame);
+        if (ret < 0) {
+            break;
+        }
+        ret = write_audio_frame(filt_frame);
+        av_frame_unref(filt_frame);
+    }
+    av_frame_free(&filt_frame);
     return ret;
 }
 
@@ -382,54 +524,15 @@ void close_output_file()
 
 }
 
-static int get_audio_frame(struct archive_stream_t* stream,
-                           AVFrame** frame,
-                           int64_t global_clock)
-{
-    int64_t offset_pts;
-    char dropped_frame = 0;
-    int ret = archive_stream_peek_frame(stream, frame, &offset_pts,
-                                        AVMEDIA_TYPE_AUDIO);
-    if (offset_pts < 0) {
-        return -1;
-    }
-
-    while (offset_pts >= 0 && offset_pts < global_clock) {
-        if (dropped_frame) {
-            printf("Warning: dropped multiple consecutive audio frames.\n");
-        }
-        // pop and free frames until we catch up
-        ret = archive_stream_pop_frame(stream, frame, &offset_pts,
-                                       AVMEDIA_TYPE_AUDIO);
-        av_frame_free(frame);
-
-        // don't forget to check the next value before continuing
-        ret = archive_stream_peek_frame(stream, frame, &offset_pts,
-                                        AVMEDIA_TYPE_AUDIO);
-
-        dropped_frame = 1;
-    }
-
-    if ((offset_pts - global_clock) >= (global_time_base.den / out_audio_fps)) {
-        // skip the next frame. it's too early to give this one away.
-        *frame = NULL;
-    } else {
-        // grab the next frame that hasn't been freed
-        ret = archive_stream_peek_frame(stream, frame, &offset_pts,
-                                        AVMEDIA_TYPE_AUDIO);
-    }
-
-    return ret;
-}
-
 static int tick_audio(struct archive_t* archive, int64_t global_clock)
 {
     int ret;
+
     // configure next audio frame to be encoded
     AVFrame* output_frame = av_frame_alloc();
     output_frame->format = audio_ctx_out->sample_fmt;
     output_frame->channel_layout = audio_ctx_out->channel_layout;
-    output_frame->nb_samples = out_sample_rate / out_audio_fps;
+    output_frame->nb_samples = audio_ctx_out->frame_size;
     output_frame->pts = av_rescale_q(global_clock,
                                      global_time_base,
                                      audio_ctx_out->time_base);
@@ -442,50 +545,12 @@ static int tick_audio(struct archive_t* archive, int64_t global_clock)
         return ret;
     }
 
-    struct archive_stream_t** active_streams;
-    int active_stream_count;
+    // mix down samples
+    audio_mixer_get_samples(archive, global_clock,
+                            global_time_base, output_frame);
 
-    archive_get_active_streams_for_time(archive, global_clock,
-                                        &active_streams,
-                                        &active_stream_count);
-    printf("Will mix %d audio streams\n", active_stream_count);
-    AVFrame* active_frames[active_stream_count];
-    for (int i = 0; i < active_stream_count; i++) {
-        struct archive_stream_t* stream = active_streams[i];
-        ret = get_audio_frame(stream, &active_frames[i], global_clock);
-    }
-
-    float output_sample;
-    float* output_frame_samples = (float*)output_frame->data[0];
-    for(int output_sample_idx = 0;
-        output_sample_idx < output_frame->nb_samples;
-        output_sample_idx++)
-    {
-
-        output_sample = 0;
-        //printf("%d\n", output_sample);
-        for (int i = 0; i < active_stream_count; i++) {
-            AVFrame* frame = active_frames[i];
-            if (!frame) {
-                continue;
-            }
-            assert(frame->format == AV_SAMPLE_FMT_S16);
-            int16_t frame_sample = ((int16_t*)frame->data[0])[output_sample_idx];
-            output_sample += frame_sample;
-        }
-
-        output_sample /= INT16_MAX;
-        if (fabs(output_sample) > 1.0) {
-            // turn down for what
-            output_sample = fmin(1.0, output_sample);
-            output_sample = fmax(-1.0, output_sample);
-        }
-
-        // copy summed sample
-        output_frame_samples[output_sample_idx] = output_sample;
-    }
-
-    write_audio_frame(output_frame);
+    // send it to the audio filter graph
+    push_audio_frame(output_frame);
 
     return ret;
 }
@@ -531,8 +596,7 @@ static int tick_video(struct archive_t* archive, int64_t global_clock)
         struct archive_stream_t* stream = active_streams[i];
         int64_t offset_pts;
         AVFrame* frame;
-        archive_stream_peek_frame(stream, &frame, &offset_pts,
-                                  AVMEDIA_TYPE_VIDEO);
+        archive_stream_peek_video(stream, &frame, &offset_pts);
         if (-1 == offset_pts) {
             continue;
         }
@@ -546,14 +610,14 @@ static int tick_video(struct archive_t* archive, int64_t global_clock)
 
         while (offset_pts != -1 && offset_pts < global_clock) {
             // pop frames until we catch up, hopefully not more than once.
-            archive_stream_pop_frame(stream, &frame, &offset_pts,
-                                     AVMEDIA_TYPE_VIDEO);
-            av_frame_free(&frame);
+            ret = archive_stream_pop_video(stream, &frame, &offset_pts);
+            if (NULL != frame && !ret) {
+                av_frame_free(&frame);
+            }
         }
 
         // grab the next frame that hasn't been freed
-        archive_stream_peek_frame(stream, &frame, &offset_pts,
-                                  AVMEDIA_TYPE_VIDEO);
+        archive_stream_peek_video(stream, &frame, &offset_pts);
 
         if (frame) {
             magic_frame_add(output_wand,
@@ -574,7 +638,7 @@ static int tick_video(struct archive_t* archive, int64_t global_clock)
     if (!ret) {
         output_frame->pts = global_clock;
 
-        ret = av_buffersrc_add_frame_flags(buffersrc_ctx, output_frame,
+        ret = av_buffersrc_add_frame_flags(video_buffersrc_ctx, output_frame,
                                            AV_BUFFERSRC_FLAG_KEEP_REF);
         /* push the output frame into the filtergraph */
         if (ret < 0)
@@ -586,7 +650,7 @@ static int tick_video(struct archive_t* archive, int64_t global_clock)
 
         /* pull filtered frames from the filtergraph */
         while (1) {
-            ret = av_buffersink_get_frame(buffersink_ctx, filt_frame);
+            ret = av_buffersink_get_frame(video_buffersink_ctx, filt_frame);
             if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
                 break;
             if (ret < 0)
@@ -622,20 +686,29 @@ int main(int argc, char **argv)
     struct archive_t* archive;
     archive_open(&archive, out_width, out_height);
 
-    ret = init_filters(filter_descr);
+    open_output_file("output.mp4");
+    
+    ret = init_audio_filters(audio_filter_descr);
     if (ret < 0)
     {
-        printf("Error: init filters\n");
+        printf("Error: init audio filters\n");
         exit(1);
     }
 
-    open_output_file("output.mp4");
+    ret = init_video_filters(video_filter_descr);
+    if (ret < 0)
+    {
+        printf("Error: init video filters\n");
+        exit(1);
+    }
 
-    int64_t global_clock = 0;
+
+    float global_clock = 0;
     int64_t video_tick_time =
     global_time_base.den / out_video_fps / global_time_base.num;
-    int64_t audio_tick_time =
-    global_time_base.den / out_audio_fps / global_time_base.num;
+    float audio_tick_time =
+    (float)audio_ctx_out->frame_size * (float) global_time_base.den /
+    (float)audio_ctx_out->sample_rate;
     int64_t last_audio_time = 0;
     int64_t last_video_time = 0;
     char need_video;
@@ -654,7 +727,7 @@ int main(int argc, char **argv)
             continue;
         }
 
-        printf("global_clock: %lld need_audio:%d need_video:%d\n",
+        printf("global_clock: %f need_audio:%d need_video:%d\n",
                global_clock, need_audio, need_video);
 
         if (need_audio) {
@@ -670,7 +743,7 @@ int main(int argc, char **argv)
         global_clock++;
     }
 end:
-    avfilter_graph_free(&filter_graph);
+    avfilter_graph_free(&video_filter_graph);
     //av_frame_free(&filt_frame);
     //archive_stream_free(&archive_streams[0]);
     if (ret < 0 && ret != AVERROR_EOF) {

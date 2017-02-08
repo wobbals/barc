@@ -52,7 +52,7 @@ int archive_open(struct archive_t** archive_out, int width, int height)
         printf("Error: failed to open %s\n", second);
         return(ret);
     }
-    archive->streams.push_back(archive_stream);
+    //archive->streams.push_back(archive_stream);
 
     ret = archive_stream_open(&archive_stream, third, 240, 41815, "707f8dd8-2105-4493-9924-ebca1584fc27", "focus");
     if (ret < 0)
