@@ -16,6 +16,16 @@ extern "C" {
 #include <queue>
 #include <deque>
 
+static int ensure_audio_frames(struct archive_stream_t* stream);
+static inline int64_t samples_per_pts(int sample_rate, int64_t pts,
+                                      AVRational time_base);
+static void insert_silence(struct archive_stream_t* stream,
+                           int64_t num_samples,
+                           int64_t from_pts, int64_t to_pts);
+
+// audio PTS are presented in millis, but where is this declared in ffmpeg?
+static const AVRational millisecond_base = { 1, 1000 };
+
 struct archive_stream_t {
     int64_t start_offset;
     int64_t stop_offset;
@@ -121,8 +131,26 @@ int archive_stream_open(struct archive_stream_t** stream_out,
     stream->stop_offset = stop_offset;
     stream->sz_name = stream_name;
     stream->sz_class = stream_class;
+
     // should this be dynamic?
     stream->audio_sample_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_S16, 1, 4098);
+
+    ret = ensure_audio_frames(stream);
+    if (ret) {
+        return ret;
+    }
+
+    // add silence to head of queue before the first audio packet plays out
+    AVFrame* frame = stream->audio_frame_fifo.front();
+    if (frame->pts > 0) {
+        int64_t num_samples =
+        samples_per_pts(stream->audio_context->sample_rate,
+                        frame->pts,
+                        millisecond_base);
+        if (num_samples > 0) {
+            insert_silence(stream, num_samples, 0, frame->pts);
+        }
+    }
 
     return 0;
 }
@@ -201,7 +229,6 @@ int archive_stream_peek_video(struct archive_stream_t* stream,
                               int64_t* offset_pts)
 {
     std::queue<AVFrame*> queue = stream->video_fifo;
-    AVCodecContext* codec_context = stream->video_context;
 
     if (!queue.empty()) {
         *frame = queue.front();
@@ -236,14 +263,20 @@ int archive_stream_pop_video(struct archive_stream_t* stream,
 }
 
 static void insert_silence(struct archive_stream_t* stream,
-                          int64_t num_samples,
+                           int64_t num_samples,
                            int64_t from_pts, int64_t to_pts)
 {
     AVFrame* silence = av_frame_alloc();
     silence->sample_rate = stream->audio_context->sample_rate;
     silence->nb_samples = (int)num_samples;
     silence->format = stream->audio_context->sample_fmt;
+    silence->channel_layout = stream->audio_context->channel_layout;
     av_frame_get_buffer(silence, 1);
+    for (int i = 0; i < silence->channels; i++) {
+        memset(silence->data[i], 0,
+               silence->nb_samples *
+               av_get_bytes_per_sample((enum AVSampleFormat)silence->format));
+    }
     silence->pts = from_pts;
     silence->pkt_duration = to_pts - from_pts;
 
@@ -255,7 +288,8 @@ static inline int64_t samples_per_pts(int sample_rate, int64_t pts,
 {
     // (duration * time_base) * (sample_rate) == sample_count
     // (20 / 1000) * 48000 == 960
-    return av_rescale_q(pts, time_base, { sample_rate, 1});
+    return (float)((float)pts * (float)time_base.num) / (float)time_base.den * (float)sample_rate;
+    //return av_rescale_q(pts, time_base, { sample_rate, 1});
 }
 
 static inline float pts_per_sample(float sample_rate, float num_samples,
@@ -300,7 +334,7 @@ static int audio_frame_fifo_pop(struct archive_stream_t* stream) {
         samples_per_pts(stream->audio_context->sample_rate,
                         new_frame->pts - old_frame->pts -
                         old_frame->pkt_duration,
-                        stream->audio_context->time_base);
+                        millisecond_base);
         if (num_samples > 0) {
             insert_silence(stream, num_samples, old_frame->pts, new_frame->pts);
         }

@@ -24,8 +24,8 @@
 #include "magic_frame.h"
 #include "audio_mixer.h"
 
-const int out_width = 1280;
-const int out_height = 720;
+const int out_width = 256;
+const int out_height = 144;
 const int out_pix_format = AV_PIX_FMT_YUV420P;
 const int out_audio_format = AV_SAMPLE_FMT_FLTP;
 const int src_audio_format = AV_SAMPLE_FMT_S16;
@@ -543,6 +543,12 @@ static int tick_audio(struct archive_t* archive, int64_t global_clock)
         printf("No output AVFrame buffer to write audio. Error: %s\n",
                av_err2str(ret));
         return ret;
+    }
+    for (int i = 0; i < output_frame->channels; i++) {
+        memset(output_frame->data[i], 0,
+               output_frame->nb_samples *
+               av_get_bytes_per_sample
+               ((enum AVSampleFormat)output_frame->format));
     }
 
     // mix down samples

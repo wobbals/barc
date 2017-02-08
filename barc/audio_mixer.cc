@@ -20,44 +20,6 @@ struct audio_mixer_t {
 
 };
 
-static int merge_audio_frame(AVFrame* dst_frame, AVFrame* src_frame,
-                             int64_t dst_offset_num_samples,
-                             int64_t* num_samples_copied)
-{
-    int ret;
-    float output_sample;
-    int16_t source_sample;
-    int src_sample_size =
-    av_get_bytes_per_sample((enum AVSampleFormat)src_frame->format);
-    int64_t output_sample_idx = dst_offset_num_samples;
-    assert(dst_frame->format == AV_SAMPLE_FMT_FLTP);
-    assert(src_frame->format == AV_SAMPLE_FMT_S16);
-    float* output_frame_samples = (float*)dst_frame->data[0];
-
-    while(output_sample_idx < src_frame->nb_samples)
-    {
-        output_sample = 0;
-        source_sample =
-        *(src_frame->data[0]+(output_sample_idx * src_sample_size));
-        output_sample += source_sample;
-        output_sample /= INT16_MAX;
-        if (fabs(output_sample) > 1.0) {
-            // turn down for what
-            printf("clip\n");
-            output_sample = fmin(1.0, output_sample);
-            output_sample = fmax(-1.0, output_sample);
-        }
-
-        // copy summed sample
-        output_frame_samples[output_sample_idx] = output_sample;
-
-        output_sample_idx++;
-    }
-    *num_samples_copied = output_sample_idx;
-    return ret;
-}
-
-
 int audio_mixer_get_samples(struct archive_t* archive,
                             int64_t clock_time,
                             AVRational time_base,
@@ -87,16 +49,34 @@ int audio_mixer_get_samples(struct archive_t* archive,
         source_samples[i] =
         (int16_t*) calloc(sizeof(int16_t), output_frame->nb_samples);
     }
+    assert(output_frame->format == AV_SAMPLE_FMT_FLTP);
+    // third loop to handle multiple channels
+    float** dest_samples = (float**)output_frame->data;
 
-    ret = archive_stream_pop_audio_samples(active_streams[0],
-                                           output_frame->nb_samples,
-                                           AV_SAMPLE_FMT_S16,
-                                           output_frame->sample_rate,
-                                           source_samples);
-    float* dest_samples = (float*)output_frame->data[0];
-    for (int i = 0; i < output_frame->nb_samples; i++) {
-        // TODO Make this dynamically typed
-        dest_samples[i] = ((float)source_samples[0][i]) / INT16_MAX;
+
+    // third loop for each active stream
+    for (int i = 0; i < active_stream_count; i++) {
+        ret = archive_stream_pop_audio_samples(active_streams[i],
+                                               output_frame->nb_samples,
+                                               AV_SAMPLE_FMT_S16,
+                                               output_frame->sample_rate,
+                                               source_samples);
+        // second loop for each channel
+        for (int j = 0; j < output_frame->channels; j++) {
+            // first loop to copy samples for a channel
+            for (int k = 0; k < output_frame->nb_samples; k++) {
+                // TODO Make this dynamically typed
+                dest_samples[j][k] +=
+                (((float)source_samples[j][k]) / INT16_MAX);
+                if (fabs(dest_samples[j][k]) > 1.0) {
+                    // turn down for what
+                    printf("clip\n");
+                    dest_samples[j][k] = fmin(1.0, dest_samples[j][k]);
+                    dest_samples[j][k] = fmax(-1.0, dest_samples[j][k]);
+                }
+
+            }
+        }
     }
 
     for (int i = 0; i < output_frame->channels; i++) {
