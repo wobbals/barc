@@ -56,6 +56,10 @@ int magic_frame_add(MagickWand* output_wand,
                       rgb_buf_in, input_frame->width * 3,
                       YCBCR_709);
 
+    // background on image color for scale/crop debugging
+    PixelWand* background = NewPixelWand();
+    //PixelSetRed(background, 1.0);
+
     MagickWand* input_wand = NewMagickWand();
 
     // import pixel buffer (there's gotta be a better way to do this)
@@ -66,11 +70,30 @@ int magic_frame_add(MagickWand* output_wand,
                                                      CharPixel,
                                                      rgb_buf_in);
 
-    // Sloooooooow
-    //MagickResampleImage(input_wand, output_width, output_height, PointFilter);
-    //MagickSampleImage(input_wand, output_width, output_height);
-    //MagickScaleImage(input_wand, scale_coeff * width, scale_coeff * height);
-    MagickResizeImage(input_wand, output_width, output_height, GaussianFilter);
+    float w_factor = (float)output_width / (float)input_frame->width;
+    float h_factor = (float)output_height / (float)input_frame->height;
+    float scale_factor = 1;
+    float internal_x_offset = 0;
+    float internal_y_offset = 0;
+
+#define FIT 1 // 0 for fill
+    if (FIT) {
+        scale_factor = fmin(w_factor, h_factor);
+    } else {
+        scale_factor = fmax(w_factor, h_factor);
+    }
+
+    float scaled_width = input_frame->width * scale_factor;
+    float scaled_height = input_frame->height * scale_factor;
+
+    internal_y_offset = (scaled_height - output_height) / 2;
+    internal_x_offset = (scaled_width - output_width) / 2;
+
+    MagickSetImageBackgroundColor(input_wand, background);
+    MagickResizeImage(input_wand, scaled_width, scaled_height, CubicFilter);
+    MagickExtentImage(input_wand, output_width, output_height,
+                      internal_x_offset, internal_y_offset);
+
 
     if (status == MagickFalse)
         ThrowWandException(input_wand);
@@ -79,6 +102,7 @@ int magic_frame_add(MagickWand* output_wand,
     MagickCompositeImage(output_wand, input_wand, OverCompositeOp,
                          MagickTrue, x_offset, y_offset);
     DestroyMagickWand(input_wand);
+    DestroyPixelWand(background);
 
     free(rgb_buf_in);
     return 0;
