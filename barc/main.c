@@ -24,8 +24,8 @@
 #include "magic_frame.h"
 #include "audio_mixer.h"
 
-const int out_width = 256;
-const int out_height = 144;
+const int out_width = 640;
+const int out_height = 480;
 const int out_pix_format = AV_PIX_FMT_YUV420P;
 const int out_audio_format = AV_SAMPLE_FMT_FLTP;
 const int src_audio_format = AV_SAMPLE_FMT_S16;
@@ -683,14 +683,14 @@ int main(int argc, char **argv)
     //av_log_set_callback(my_log_callback);
 
     int ret;
-
+    time_t start_time = time(NULL);
     av_register_all();
     avfilter_register_all();
 
     MagickWandGenesis();
 
     struct archive_t* archive;
-    archive_open(&archive, out_width, out_height);
+    archive_open(&archive, out_width, out_height, "/Users/charley/src/barc/sample/product_meeting_sample");
 
     open_output_file("output.mp4");
     
@@ -759,6 +759,10 @@ end:
     MagickWandTerminus();
 
     close_output_file();
+
+    time_t finish_time = time(NULL);
+
+    printf("Composition took %ld seconds\n", finish_time - start_time);
 
     char cwd[1024];
     printf("%s\n", getcwd(cwd, sizeof(cwd)));

@@ -13,6 +13,9 @@
 extern "C" {
 #include "archive_package.h"
 #include "archive_stream.h"
+#include <jansson.h>
+#include <glob.h>
+#include <unistd.h>
 }
 
 struct archive_t {
@@ -23,48 +26,100 @@ struct archive_t {
     int height;
 };
 
-int archive_open(struct archive_t** archive_out, int width, int height)
+/* globerr --- print error message for glob() */
+
+int globerr(const char *path, int eerrno)
+{
+    printf("%s: %s\n", path, strerror(eerrno));
+    return 0;	/* let glob() keep going */
+}
+
+int open_manifest_item(struct archive_stream_t** stream, json_t* item) {
+    int ret;
+    json_t* node = json_object_get(item, "filename");
+    if (!json_is_string(node)) {
+        printf("unable to parse filename!\n");
+        return -1;
+    }
+    const char* filename_str = json_string_value(node);
+
+    node = json_object_get(item, "startTimeOffset");
+    if (!json_is_integer(node)) {
+        printf("unable to parse start time!\n");
+        return -1;
+    }
+    json_int_t start = json_integer_value(node);
+
+    node = json_object_get(item, "stopTimeOffset");
+    if (!json_is_integer(node)) {
+        printf("unable to parse stop time!\n");
+        return -1;
+    }
+    json_int_t stop = json_integer_value(node);
+
+    node = json_object_get(item, "streamId");
+    if (!json_is_string(node)) {
+        printf("unable to parse streamid!\n");
+        return -1;
+    }
+    const char* stream_id = json_string_value(node);
+    ret = archive_stream_open(stream, filename_str, start, stop, stream_id, "");
+    printf("parsed archive stream %s\n", filename_str);
+    return ret;
+}
+
+int archive_open(struct archive_t** archive_out, int width, int height,
+                 const char* path)
 {
     int ret;
-    const char* first = "/Users/charley/src/barc/sample/388da791-581a-4719-a964-49a23b877e97.webm";
-    const char* second = "/Users/charley/src/barc/sample/def26e29-eb3f-4472-b89a-feb27342acb7.webm";
-    //const char* third = "/Users/charley/src/barc/sample/dda29d9c-8b03-45cb-b9f5-375c8331532f.webm";
-    //const char* third = "/Users/charley/src/barc/sample/allhands_sample/707f8dd8-2105-4493-9924-ebca1584fc27.webm";
-    const char* third = "/Users/charley/src/barc/sample/audio_sync/25aaa3a8-bea4-4da9-b75d-cf1a90348175.webm";
+    glob_t globbuf;
+    ret = chdir(path);
+    if (ret) {
+        printf("unknown path %s\n", path);
+        return -1;
+    }
+    glob("*.json", 0, globerr, &globbuf);
+
+    if (!globbuf.gl_pathc) {
+        printf("no json manifest found at %s\n", path);
+    }
+    // use the first one we find
+    const char* manifest_path = globbuf.gl_pathv[0];
+    json_t *manifest;
+    json_error_t error;
+
+    manifest = json_load_file(manifest_path, 0, &error);
+    if (!manifest) {
+        printf("Unable to parse json manifest: line %d: %s\n",
+               error.line, error.text);
+        return 1;
+    }
+    json_t* files = json_object_get(manifest, "files");
+
+    if (!json_is_array(files)) {
+        printf("No files declared in manifest\n");
+        return 1;
+    }
+    size_t index;
+    json_t *value;
     struct archive_stream_t* archive_stream;
-    struct archive_t* archive = (struct archive_t*) calloc(1, sizeof(struct archive_t));
+    struct archive_t* archive =
+    (struct archive_t*) calloc(1, sizeof(struct archive_t));
     *archive_out = archive;
 
     archive->streams = std::vector<struct archive_stream_t*>();
     archive->width = width;
     archive->height = height;
 
-    ret = archive_stream_open(&archive_stream, first, 9681, 29384, "388da791-581a-4719-a964-49a23b877e97", "");
-    if (ret < 0)
-    {
-        printf("Error: failed to open %s\n", first);
-        return(ret);
+    json_array_foreach(files, index, value) {
+        ret = open_manifest_item(&archive_stream, value);
+        if (!ret) {
+            archive->streams.push_back(archive_stream);
+        }
     }
-    //archive->streams.push_back(archive_stream);
-
-    ret = archive_stream_open(&archive_stream, second, 220, /*12756*/ 2000, "def26e29-eb3f-4472-b89a-feb27342acb7", "");
-    if (ret < 0)
-    {
-        printf("Error: failed to open %s\n", second);
-        return(ret);
-    }
-    archive->streams.push_back(archive_stream);
-
-    ret = archive_stream_open(&archive_stream, third, 221, /*28250 */ 2000, "25aaa3a8-bea4-4da9-b75d-cf1a90348175", "focus");
-    if (ret < 0)
-    {
-        printf("Error: failed to open %s\n", third);
-        return(ret);
-    }
-    archive->streams.push_back(archive_stream);
 
     archive->layout = new ArchiveLayout(width, height);
-    archive->layout->setStyleSheet(Layout::kVerticalPresentation);
+    archive->layout->setStyleSheet(Layout::kBestfitCss);
 
     return 0;
 }

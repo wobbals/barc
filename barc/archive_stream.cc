@@ -137,7 +137,13 @@ int archive_stream_open(struct archive_stream_t** stream_out,
 
     ret = ensure_audio_frames(stream);
     if (ret) {
-        return ret;
+        // don't worry about audio fifos. we'll fill in silence.
+        // this may be costly in memory if there is never audio on the stream
+        int64_t num_samples =
+        samples_per_pts(stream->audio_context->sample_rate,
+                        stream->stop_offset,
+                        millisecond_base);
+        insert_silence(stream, num_samples, 0, stream->stop_offset);
     }
 
     // add silence to head of queue before the first audio packet plays out

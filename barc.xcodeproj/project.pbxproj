@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D401DF481E4C1F7200E26720 /* libjansson.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D401DF471E4C1F7200E26720 /* libjansson.4.dylib */; };
 		D470188B1E3BC5130040257B /* background.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D47018131E3BC5130040257B /* background.cpp */; };
 		D470188C1E3BC5130040257B /* box.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D47018161E3BC5130040257B /* box.cpp */; };
 		D470188D1E3BC5130040257B /* context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D47018181E3BC5130040257B /* context.cpp */; };
@@ -105,6 +106,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D401DF471E4C1F7200E26720 /* libjansson.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libjansson.4.dylib; path = ../../../../usr/local/Cellar/jansson/2.9/lib/libjansson.4.dylib; sourceTree = "<group>"; };
 		D47017FB1E3BC5130040257B /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		D47017FC1E3BC5130040257B /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
 		D470180D1E3BC5130040257B /* litehtml.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = litehtml.h; sourceTree = "<group>"; };
@@ -287,6 +289,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D401DF481E4C1F7200E26720 /* libjansson.4.dylib in Frameworks */,
 				D49D2CDC1E404A4B005096BF /* OpenGL.framework in Frameworks */,
 				D49D2CDA1E404A2E005096BF /* AppKit.framework in Frameworks */,
 				D49D2CD81E404A14005096BF /* Foundation.framework in Frameworks */,
@@ -523,6 +526,7 @@
 		D47DB3561E3171990052418C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D401DF471E4C1F7200E26720 /* libjansson.4.dylib */,
 				D49D2CDB1E404A4B005096BF /* OpenGL.framework */,
 				D49D2CD91E404A2E005096BF /* AppKit.framework */,
 				D49D2CD71E404A14005096BF /* Foundation.framework */,
@@ -802,6 +806,7 @@
 					/usr/local/Cellar/lame/3.99.5/lib,
 					/usr/local/Cellar/x264/r2533/lib,
 					/usr/local/Cellar/opus/1.1.4/lib,
+					/usr/local/Cellar/jansson/2.9/lib,
 				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -818,6 +823,7 @@
 					/usr/local/Cellar/lame/3.99.5/lib,
 					/usr/local/Cellar/x264/r2533/lib,
 					/usr/local/Cellar/opus/1.1.4/lib,
+					/usr/local/Cellar/jansson/2.9/lib,
 				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
