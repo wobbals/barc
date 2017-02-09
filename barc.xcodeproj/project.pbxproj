@@ -90,6 +90,7 @@
 		D49D2CD81E404A14005096BF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD71E404A14005096BF /* Foundation.framework */; };
 		D49D2CDA1E404A2E005096BF /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD91E404A2E005096BF /* AppKit.framework */; };
 		D49D2CDC1E404A4B005096BF /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CDB1E404A4B005096BF /* OpenGL.framework */; };
+		D4EEBD4E1E4D13CB0004B76A /* libzip.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */; };
 		D4F5FAB21E4253BA00328734 /* audio_mixer.cc in Sources */ = {isa = PBXBuildFile; fileRef = D4F5FAB01E4253BA00328734 /* audio_mixer.cc */; };
 /* End PBXBuildFile section */
 
@@ -107,6 +108,7 @@
 
 /* Begin PBXFileReference section */
 		D401DF471E4C1F7200E26720 /* libjansson.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libjansson.4.dylib; path = ../../../../usr/local/Cellar/jansson/2.9/lib/libjansson.4.dylib; sourceTree = "<group>"; };
+		D401DF491E4D121A00E26720 /* libzip.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libzip.2.dylib; path = ../../../../usr/local/Cellar/libzip/0.11.1/lib/libzip.2.dylib; sourceTree = "<group>"; };
 		D47017FB1E3BC5130040257B /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		D47017FC1E3BC5130040257B /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
 		D470180D1E3BC5130040257B /* litehtml.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = litehtml.h; sourceTree = "<group>"; };
@@ -280,6 +282,7 @@
 		D49D2CD71E404A14005096BF /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		D49D2CD91E404A2E005096BF /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		D49D2CDB1E404A4B005096BF /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
+		D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libzip.4.dylib; path = ../../../../usr/local/Cellar/libzip/1.1.2/lib/libzip.4.dylib; sourceTree = "<group>"; };
 		D4F5FAB01E4253BA00328734 /* audio_mixer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = audio_mixer.cc; sourceTree = "<group>"; };
 		D4F5FAB11E4253BA00328734 /* audio_mixer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = audio_mixer.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -289,6 +292,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4EEBD4E1E4D13CB0004B76A /* libzip.4.dylib in Frameworks */,
 				D401DF481E4C1F7200E26720 /* libjansson.4.dylib in Frameworks */,
 				D49D2CDC1E404A4B005096BF /* OpenGL.framework in Frameworks */,
 				D49D2CDA1E404A2E005096BF /* AppKit.framework in Frameworks */,
@@ -526,6 +530,8 @@
 		D47DB3561E3171990052418C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */,
+				D401DF491E4D121A00E26720 /* libzip.2.dylib */,
 				D401DF471E4C1F7200E26720 /* libjansson.4.dylib */,
 				D49D2CDB1E404A4B005096BF /* OpenGL.framework */,
 				D49D2CD91E404A2E005096BF /* AppKit.framework */,
@@ -807,6 +813,8 @@
 					/usr/local/Cellar/x264/r2533/lib,
 					/usr/local/Cellar/opus/1.1.4/lib,
 					/usr/local/Cellar/jansson/2.9/lib,
+					/usr/local/Cellar/libzip/0.11.1/lib,
+					/usr/local/Cellar/libzip/1.1.2/lib,
 				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -824,6 +832,8 @@
 					/usr/local/Cellar/x264/r2533/lib,
 					/usr/local/Cellar/opus/1.1.4/lib,
 					/usr/local/Cellar/jansson/2.9/lib,
+					/usr/local/Cellar/libzip/0.11.1/lib,
+					/usr/local/Cellar/libzip/1.1.2/lib,
 				);
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
