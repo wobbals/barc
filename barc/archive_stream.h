@@ -22,13 +22,17 @@ int archive_stream_open(struct archive_stream_t** stream_out,
                         const char* stream_class);
 int archive_stream_free(struct archive_stream_t* stream);
 
-int archive_stream_peek_video(struct archive_stream_t* stream,
-                              AVFrame** frame,
-                              int64_t* offset_pts);
+void archive_stream_set_output_video_fps(struct archive_stream_t* stream,
+                                         int fps);
 
-int archive_stream_pop_video(struct archive_stream_t* stream,
-                             AVFrame** frame,
-                             int64_t* offset_pts);
+int archive_stream_get_video_for_time(struct archive_stream_t* stream,
+                                      AVFrame** frame,
+                                      int64_t clock_time,
+                                      AVRational clock_time_base);
+
+int archive_stream_has_video_for_time(struct archive_stream_t* stream,
+                                      int64_t clock_time,
+                                      AVRational clock_time_base);
 
 int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
                                      int num_samples,
@@ -39,10 +43,19 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
 int archive_stream_is_active_at_time(struct archive_stream_t* stream,
                                      int64_t global_time);
 
-int* archive_stream_offset_x(struct archive_stream_t* stream);
-int* archive_stream_offset_y(struct archive_stream_t* stream);
-int* archive_stream_render_width(struct archive_stream_t* stream);
-int* archive_stream_render_height(struct archive_stream_t* stream);
+
+int archive_stream_get_offset_x(struct archive_stream_t* stream);
+int archive_stream_get_offset_y(struct archive_stream_t* stream);
+int archive_stream_get_render_width(struct archive_stream_t* stream);
+int archive_stream_get_render_height(struct archive_stream_t* stream);
+void archive_stream_set_offset_x(struct archive_stream_t* stream,
+                                 int x_offset);
+void archive_stream_set_offset_y(struct archive_stream_t* stream,
+                                 int y_offset);
+void archive_stream_set_render_width(struct archive_stream_t* stream,
+                                     int width);
+void archive_stream_set_render_height(struct archive_stream_t* stream,
+                                      int height);
 int64_t archive_stream_get_stop_offset(struct archive_stream_t* stream);
 int64_t archive_stream_get_start_offset(struct archive_stream_t* stream);
 const char* archive_stream_get_name(struct archive_stream_t* stream);

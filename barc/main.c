@@ -31,7 +31,7 @@
 #include "file_writer.h"
 
 const int out_width = 640;
-const int out_height = 360;
+const int out_height = 480;
 
 static int tick_audio(struct file_writer_t* file_writer,
                       struct archive_t* archive, int64_t global_clock,
@@ -73,7 +73,8 @@ static int tick_audio(struct file_writer_t* file_writer,
 }
 
 static int tick_video(struct file_writer_t* file_writer,
-                      struct archive_t* archive, int64_t global_clock)
+                      struct archive_t* archive, int64_t clock_time,
+                      AVRational clock_time_base)
 {
     int ret;
     AVFrame* output_frame = av_frame_alloc();
@@ -95,26 +96,32 @@ static int tick_video(struct file_writer_t* file_writer,
         return -1;
     }
 
-    archive_populate_stream_coords(archive, global_clock);
+    archive_populate_stream_coords(archive, clock_time, clock_time_base);
 
     struct archive_stream_t** active_streams;
     int active_stream_count;
 
-    archive_get_active_streams_for_time(archive, global_clock,
+    archive_get_active_streams_for_time(archive, clock_time,
                                         &active_streams,
                                         &active_stream_count);
 
     MagickWand* output_wand;
     magic_frame_start(&output_wand, out_width, out_height);
 
-    printf("will write %d frames to magic\n", active_stream_count);
+    int wrote_frames = 0;
     // append source frames to magic frame
     for (int i = 0; i < active_stream_count; i++) {
         struct archive_stream_t* stream = active_streams[i];
-        int64_t offset_pts;
+        if (!archive_stream_has_video_for_time(stream, clock_time,
+                                              clock_time_base))
+        {
+            continue;
+        }
+
         AVFrame* frame;
-        archive_stream_peek_video(stream, &frame, &offset_pts);
-        if (-1 == offset_pts) {
+        ret = archive_stream_get_video_for_time(stream, &frame,
+                                                clock_time, clock_time_base);
+        if (NULL == frame || ret) {
             continue;
         }
 
@@ -124,36 +131,21 @@ static int tick_video(struct file_writer_t* file_writer,
 //            printf("Stream %d current offset vs global clock: %lld\n",
 //                   i, delta);
 //        }
+        magic_frame_add(output_wand,
+                        frame,
+                        archive_stream_get_offset_x(stream),
+                        archive_stream_get_offset_y(stream),
+                        archive_stream_get_render_width(stream),
+                        archive_stream_get_render_height(stream));
+        wrote_frames++;
 
-        while (offset_pts != -1 && offset_pts < global_clock) {
-            // pop frames until we catch up, hopefully not more than once.
-            ret = archive_stream_pop_video(stream, &frame, &offset_pts);
-            if (NULL != frame && !ret) {
-                av_frame_free(&frame);
-            }
-        }
-
-        // grab the next frame that hasn't been freed
-        archive_stream_peek_video(stream, &frame, &offset_pts);
-
-        if (frame) {
-            magic_frame_add(output_wand,
-                            frame,
-                            *archive_stream_offset_x(stream),
-                            *archive_stream_offset_y(stream),
-                            *archive_stream_render_width(stream),
-                            *archive_stream_render_height(stream));
-        } else {
-            printf("Warning: Ran out of frames on stream %d. "
-                   "The time is %lld. Declared finish time is %lld\n",
-                   i, global_clock, archive_stream_get_stop_offset(stream));
-        }
     }
+    printf("Wrote %d frames to magic frame\n", wrote_frames);
 
     ret = magic_frame_finish(output_wand, output_frame);
 
     if (!ret) {
-        output_frame->pts = global_clock;
+        output_frame->pts = clock_time;
         ret = file_writer_push_video_frame(file_writer, output_frame);
     }
 end:
@@ -300,6 +292,7 @@ int main(int argc, char **argv)
     AVRational global_time_base = {1, 1000};
     // todo: fix video_fps to coordinate with the file writer
     float out_video_fps = 30;
+    archive_set_output_video_fps(archive, out_video_fps);
     float global_clock = 0;
     int64_t video_tick_time =
     global_time_base.den / out_video_fps / global_time_base.num;
@@ -335,7 +328,7 @@ int main(int argc, char **argv)
 
         if (need_video) {
             last_video_time = global_clock;
-            tick_video(file_writer, archive, global_clock);
+            tick_video(file_writer, archive, global_clock, global_time_base);
         }
 
         global_clock++;

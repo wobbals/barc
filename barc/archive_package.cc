@@ -132,13 +132,23 @@ int archive_free(struct archive_t* archive) {
     return 0;
 }
 
+void archive_set_output_video_fps(struct archive_t* archive, int fps) {
+    for (struct archive_stream_t* stream : archive->streams) {
+        archive_stream_set_output_video_fps(stream, fps);
+    }
+}
+
 int archive_populate_stream_coords(struct archive_t* archive,
-                                   int64_t global_clock)
+                                   int64_t clock_time,
+                                   AVRational clock_time_base)
 {
     // Regenerate stream list every tick to allow on-the-fly layout changes
     std::vector<ArchiveStreamInfo> stream_info;
     for (struct archive_stream_t* stream : archive->streams) {
-        if (archive_stream_is_active_at_time(stream, global_clock)) {
+        if (archive_stream_is_active_at_time(stream, clock_time) &&
+            archive_stream_has_video_for_time(stream, clock_time,
+                                              clock_time_base))
+        {
             stream_info.push_back
             (ArchiveStreamInfo(archive_stream_get_name(stream),
                                archive_stream_get_class(stream),
@@ -151,10 +161,10 @@ int archive_populate_stream_coords(struct archive_t* archive,
         for (struct archive_stream_t* stream : archive->streams) {
             if (!strcmp(position.stream_id.c_str(),
                         archive_stream_get_name(stream))) {
-                *archive_stream_offset_x(stream) = position.x;
-                *archive_stream_offset_y(stream) = position.y;
-                *archive_stream_render_width(stream) = position.width;
-                *archive_stream_render_height(stream) = position.height;
+                archive_stream_set_offset_x(stream, position.x);
+                archive_stream_set_offset_y(stream, position.y);
+                archive_stream_set_render_width(stream, position.width);
+                archive_stream_set_render_height(stream, position.height);
             }
         }
     }

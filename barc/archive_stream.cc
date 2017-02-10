@@ -37,7 +37,7 @@ struct archive_stream_t {
     int audio_stream_index;
     std::queue<AVFrame*> video_fifo;
     std::deque<AVFrame*> audio_frame_fifo;
-
+    int output_video_fps;
     AVAudioFifo* audio_sample_fifo;
 
     const char* sz_name;
@@ -263,42 +263,66 @@ static int read_audio_frame(struct archive_stream_t* stream)
     return !got_frame;
 }
 
-int archive_stream_peek_video(struct archive_stream_t* stream,
-                              AVFrame** frame,
-                              int64_t* offset_pts)
-{
-    std::queue<AVFrame*> queue = stream->video_fifo;
-
-    if (!queue.empty()) {
-        *frame = queue.front();
-        //printf("%p peek %d pts %lld\n", stream, media_type, (*frame)->pts);
-        *offset_pts = (*frame)->pts + stream->start_offset;
-        // round down to the nearest packet interval for easier math
-        if ((*frame)->pkt_duration > 0) {
-            int64_t round = *offset_pts % ((*frame)->pkt_duration);
-            *offset_pts -= round;
-        }
-        return 0;
-    } else if (read_video_frame(stream)) {
-        *frame = NULL;
-        *offset_pts = -1;
-        return AVERROR_EOF;
-    } else {
-        // try again. hopefully we should not need to pump many frames.
-        return archive_stream_peek_video(stream, frame, offset_pts);
+static int ensure_video_frame(struct archive_stream_t* stream) {
+    int ret = 0;
+    if (stream->video_fifo.empty()) {
+        ret = read_video_frame(stream);
     }
+    return ret;
 }
 
-int archive_stream_pop_video(struct archive_stream_t* stream,
-                             AVFrame** frame,
-                             int64_t* offset_pts)
+void archive_stream_set_output_video_fps(struct archive_stream_t* stream,
+                                         int fps)
 {
-    int ret = archive_stream_peek_video(stream, frame, offset_pts);
-    if (ret < 0) {
+    stream->output_video_fps = fps;
+}
+
+int archive_stream_get_video_for_time(struct archive_stream_t* stream,
+                                      AVFrame** frame,
+                                      int64_t clock_time,
+                                      AVRational clock_time_base)
+{
+    int ret = ensure_video_frame(stream);
+    if (ret) {
+        *frame = NULL;
         return ret;
     }
-    stream->video_fifo.pop();
-    return ret;
+    assert(!stream->video_fifo.empty());
+    AVFrame* front = stream->video_fifo.front();
+    AVStream* video_stream =
+    stream->video_format_context->streams[stream->video_stream_index];
+    int64_t local_time = av_rescale_q(clock_time, clock_time_base,
+                                      video_stream->time_base);
+    int64_t offset_pts = front->pts + stream->start_offset;
+
+    while (offset_pts < local_time) {
+        av_frame_free(&front);
+        stream->video_fifo.pop();
+        if (ensure_video_frame(stream)) {
+            return -1;
+        }
+        front = stream->video_fifo.front();
+        offset_pts = front->pts + stream->start_offset;
+    }
+
+    // after a certain point, we'll stop duplicating frames.
+    // TODO: make this configurable maybe?
+    if (local_time - offset_pts > 3000) {
+        *frame = NULL;
+    } else {
+        *frame = front;
+    }
+
+    return (NULL == *frame);
+}
+
+int archive_stream_has_video_for_time(struct archive_stream_t* stream,
+                                      int64_t clock_time,
+                                      AVRational clock_time_base)
+{
+    AVFrame* frame;
+    return 0 == archive_stream_get_video_for_time(stream, &frame,
+                                                  clock_time, clock_time_base);
 }
 
 static void insert_silence(struct archive_stream_t* stream,
@@ -421,7 +445,7 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
     }
 
     if (ret) {
-        printf("can't get more samples");
+        printf("can't get more samples\n");
         return ret;
     }
 
@@ -438,20 +462,44 @@ int archive_stream_is_active_at_time(struct archive_stream_t* stream,
             global_time < stream->stop_offset);
 }
 
-int* archive_stream_offset_x(struct archive_stream_t* stream) {
-    return &stream->x_offset;
+int archive_stream_get_offset_x(struct archive_stream_t* stream) {
+    return stream->x_offset;
 }
 
-int* archive_stream_offset_y(struct archive_stream_t* stream) {
-    return &stream->y_offset;
+int archive_stream_get_offset_y(struct archive_stream_t* stream) {
+    return stream->y_offset;
 }
 
-int* archive_stream_render_width(struct archive_stream_t* stream) {
-    return &stream->render_width;
+int archive_stream_get_render_width(struct archive_stream_t* stream) {
+    return stream->render_width;
 }
 
-int* archive_stream_render_height(struct archive_stream_t* stream) {
-    return &stream->render_height;
+int archive_stream_get_render_height(struct archive_stream_t* stream) {
+    return stream->render_height;
+}
+
+void archive_stream_set_offset_x(struct archive_stream_t* stream,
+                                 int x_offset)
+{
+    stream->x_offset = x_offset;
+}
+
+void archive_stream_set_offset_y(struct archive_stream_t* stream,
+                                 int y_offset)
+{
+    stream->y_offset = y_offset;
+}
+
+void archive_stream_set_render_width(struct archive_stream_t* stream,
+                                     int width)
+{
+    stream->render_width = width;
+}
+
+void archive_stream_set_render_height(struct archive_stream_t* stream,
+                                      int height)
+{
+    stream->render_height = height;
 }
 
 int64_t archive_stream_get_stop_offset(struct archive_stream_t* stream)
