@@ -297,8 +297,8 @@ int main(int argc, char **argv)
     file_writer_alloc(&file_writer);
     file_writer_open(file_writer, "output.mp4", out_width, out_height);
 
-    // todo: fix time base and video_fps to coordinate with the file writer
-    AVRational global_time_base = { 1, 1000 };
+    AVRational global_time_base = {1, 1000};
+    // todo: fix video_fps to coordinate with the file writer
     float out_video_fps = 30;
     float global_clock = 0;
     int64_t video_tick_time =

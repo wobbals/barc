@@ -23,14 +23,14 @@ static void insert_silence(struct archive_stream_t* stream,
                            int64_t num_samples,
                            int64_t from_pts, int64_t to_pts);
 
-// audio PTS are presented in millis, but where is this declared in ffmpeg?
-static const AVRational millisecond_base = { 1, 1000 };
-
 struct archive_stream_t {
     int64_t start_offset;
     int64_t stop_offset;
     int64_t duration;
-    AVFormatContext* format_context;
+
+    // read the same file twice to split the read functions
+    AVFormatContext* video_format_context;
+    AVFormatContext* audio_format_context;
     AVCodecContext* video_context;
     AVCodecContext* audio_context;
     int video_stream_index;
@@ -76,7 +76,7 @@ static int archive_open_codec(AVFormatContext* format_context,
 
     av_opt_set_int(*codec_context, "refcounted_frames", 1, 0);
 
-    /* init the video decoder */
+    /* init the decoder */
     ret = avcodec_open2(*codec_context, dec, NULL);
     if (ret < 0) {
         av_log(NULL, AV_LOG_ERROR, "Cannot open video decoder\n");
@@ -97,7 +97,7 @@ int archive_stream_open(struct archive_stream_t** stream_out,
     (struct archive_stream_t*) calloc(1, sizeof(struct archive_stream_t));
     *stream_out = stream;
 
-    ret = avformat_open_input(&stream->format_context, filename,
+    ret = avformat_open_input(&stream->audio_format_context, filename,
                               NULL, NULL);
     if (ret < 0)
     {
@@ -105,19 +105,20 @@ int archive_stream_open(struct archive_stream_t** stream_out,
         return ret;
     }
 
-    ret = avformat_find_stream_info(stream->format_context, NULL);
+    ret = avformat_open_input(&stream->video_format_context, filename,
+                              NULL, NULL);
     if (ret < 0)
     {
-        av_log(NULL, AV_LOG_ERROR, "Cannot find stream information\n");
+        av_log(NULL, AV_LOG_ERROR, "Cannot open input file\n");
         return ret;
     }
 
-    archive_open_codec(stream->format_context,
+    archive_open_codec(stream->video_format_context,
                        AVMEDIA_TYPE_VIDEO,
                        &stream->video_context,
                        &stream->video_stream_index);
 
-    archive_open_codec(stream->format_context,
+    archive_open_codec(stream->audio_format_context,
                        AVMEDIA_TYPE_AUDIO,
                        &stream->audio_context,
                        &stream->audio_stream_index);
@@ -136,13 +137,15 @@ int archive_stream_open(struct archive_stream_t** stream_out,
     stream->audio_sample_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_S16, 1, 4098);
 
     ret = ensure_audio_frames(stream);
+    AVStream* audio_stream =
+    stream->audio_format_context->streams[stream->audio_stream_index];
     if (ret) {
         // don't worry about audio fifos. we'll fill in silence.
         // this may be costly in memory if there is never audio on the stream
         int64_t num_samples =
         samples_per_pts(stream->audio_context->sample_rate,
                         stream->stop_offset,
-                        millisecond_base);
+                        audio_stream->time_base);
         insert_silence(stream, num_samples, 0, stream->stop_offset);
     }
 
@@ -152,7 +155,7 @@ int archive_stream_open(struct archive_stream_t** stream_out,
         int64_t num_samples =
         samples_per_pts(stream->audio_context->sample_rate,
                         frame->pts,
-                        millisecond_base);
+                        audio_stream->time_base);
         if (num_samples > 0) {
             insert_silence(stream, num_samples, 0, frame->pts);
         }
@@ -175,20 +178,27 @@ int archive_stream_free(struct archive_stream_t* stream)
     }
     avcodec_close(stream->video_context);
     avcodec_close(stream->audio_context);
-    avformat_close_input(&stream->format_context);
+    avformat_close_input(&stream->audio_format_context);
+    avformat_close_input(&stream->video_format_context);
     av_audio_fifo_free(stream->audio_sample_fifo);
     free(stream);
     return 0;
 }
 
-static int get_next_frame(struct archive_stream_t* stream)
+/* Editorial: Splitting the input reader into two separate instances allows
+ * us to seek through the source file for specific data without altering
+ * progress of other stream tracks. The alternative is to seek once and keep
+ * extra data in a fifo. Sometimes this causes memory to run away, so instead
+ * we just read the same input file twice.
+ */
+static int read_video_frame(struct archive_stream_t* stream)
 {
     int ret, got_frame = 0;
     AVPacket packet = { 0 };
 
-    /* pump packet reader until both fifos are populated */
-    while (stream->audio_frame_fifo.empty() || stream->video_fifo.empty()) {
-        ret = av_read_frame(stream->format_context, &packet);
+    /* pump packet reader until fifo is populated, or file ends */
+    while (stream->video_fifo.empty()) {
+        ret = av_read_frame(stream->video_format_context, &packet);
         if (ret < 0) {
             return ret;
         }
@@ -202,12 +212,35 @@ static int get_next_frame(struct archive_stream_t* stream)
                 av_log(NULL, AV_LOG_ERROR, "Error decoding video: %s\n",
                        av_err2str(ret));
             }
-            
+
             if (got_frame) {
                 frame->pts = av_frame_get_best_effort_timestamp(frame);
                 stream->video_fifo.push(frame);
             }
-        } else if (packet.stream_index == stream->audio_stream_index) {
+        } else {
+            av_frame_free(&frame);
+        }
+
+        av_packet_unref(&packet);
+    }
+    
+    return !got_frame;
+}
+
+static int read_audio_frame(struct archive_stream_t* stream)
+{
+    int ret, got_frame = 0;
+    AVPacket packet = { 0 };
+
+    /* pump packet reader until fifo is populated, or file ends */
+    while (stream->audio_frame_fifo.empty()) {
+        ret = av_read_frame(stream->audio_format_context, &packet);
+        if (ret < 0) {
+            return ret;
+        }
+
+        AVFrame* frame = av_frame_alloc();
+        if (packet.stream_index == stream->audio_stream_index) {
             got_frame = 0;
             ret = avcodec_decode_audio4(stream->audio_context, frame,
                                         &got_frame, &packet);
@@ -226,7 +259,7 @@ static int get_next_frame(struct archive_stream_t* stream)
 
         av_packet_unref(&packet);
     }
-
+    
     return !got_frame;
 }
 
@@ -246,7 +279,7 @@ int archive_stream_peek_video(struct archive_stream_t* stream,
             *offset_pts -= round;
         }
         return 0;
-    } else if (get_next_frame(stream)) {
+    } else if (read_video_frame(stream)) {
         *frame = NULL;
         *offset_pts = -1;
         return AVERROR_EOF;
@@ -311,7 +344,7 @@ static inline float pts_per_sample(float sample_rate, float num_samples,
 static int ensure_audio_frames(struct archive_stream_t* stream) {
     int ret = 0;
     if (stream->audio_frame_fifo.empty()) {
-        ret = get_next_frame(stream);
+        ret = read_audio_frame(stream);
     }
     return ret;
 }
@@ -332,7 +365,8 @@ static int audio_frame_fifo_pop(struct archive_stream_t* stream) {
     if (ret) {
         return ret;
     }
-
+    AVStream* audio_stream =
+    stream->audio_format_context->streams[stream->audio_stream_index];
     AVFrame* new_frame = stream->audio_frame_fifo.front();
     // insert silence if we detect a lapse in audio continuity
     if ((new_frame->pts - old_frame->pts) > old_frame->pkt_duration) {
@@ -340,7 +374,7 @@ static int audio_frame_fifo_pop(struct archive_stream_t* stream) {
         samples_per_pts(stream->audio_context->sample_rate,
                         new_frame->pts - old_frame->pts -
                         old_frame->pkt_duration,
-                        millisecond_base);
+                        audio_stream->time_base);
         if (num_samples > 0) {
             insert_silence(stream, num_samples, old_frame->pts, new_frame->pts);
         }

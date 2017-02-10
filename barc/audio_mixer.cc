@@ -67,7 +67,6 @@ int audio_mixer_get_samples(struct archive_t* archive,
                     dest_samples[j][k] = fmin(1.0, dest_samples[j][k]);
                     dest_samples[j][k] = fmax(-1.0, dest_samples[j][k]);
                 }
-
             }
         }
     }
