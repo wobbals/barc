@@ -7,28 +7,18 @@
 //
 
 #include <unistd.h>
-#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libavfilter/avfiltergraph.h>
-#include <libavfilter/buffersink.h>
-#include <libavfilter/buffersrc.h>
-#include <libavutil/opt.h>
-#include <libswresample/swresample.h>
 #include <assert.h>
 #include <MagickWand/MagickWand.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <ftw.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <zip.h>
+#include <uv.h>
 
 #include "yuv_rgb.h"
 #include "archive_stream.h"
 #include "archive_package.h"
-#include "magic_frame.h"
 #include "audio_mixer.h"
 #include "file_writer.h"
+#include "zipper.h"
+#include "frame_builder.h"
 
 const int out_width = 640;
 const int out_height = 480;
@@ -72,29 +62,32 @@ static int tick_audio(struct file_writer_t* file_writer,
     return ret;
 }
 
+struct frame_builder_callback_data_t {
+    int64_t clock_time;
+    struct file_writer_t* file_writer;
+};
+
+static void frame_builder_cb(AVFrame* frame, void *p) {
+    struct frame_builder_callback_data_t* data =
+    ((struct frame_builder_callback_data_t*)p);
+    int64_t clock_time = data->clock_time;
+    struct file_writer_t* file_writer = data->file_writer;
+
+    frame->pts = clock_time;
+    int ret = file_writer_push_video_frame(file_writer, frame);
+    if (ret) {
+        printf("Unable to push video frame %lld\n", frame->pts);
+    }
+    av_frame_free(&frame);
+    free(p);
+}
+
 static int tick_video(struct file_writer_t* file_writer,
+                      struct frame_builder_t* frame_builder,
                       struct archive_t* archive, int64_t clock_time,
                       AVRational clock_time_base)
 {
-    int ret;
-    AVFrame* output_frame = av_frame_alloc();
-
-    // Configure output frame buffer
-    output_frame->format = AV_PIX_FMT_YUV420P;
-    output_frame->width = out_width;
-    output_frame->height = out_height;
-    ret = av_frame_get_buffer(output_frame, 1);
-    if (ret) {
-        printf("No output AVFrame buffer to write video. Error: %s\n",
-               av_err2str(ret));
-        return ret;
-    }
-
-
-    if (!output_frame) {
-        perror("Could not allocate frame");
-        return -1;
-    }
+    int ret = -1;
 
     archive_populate_stream_coords(archive, clock_time, clock_time_base);
 
@@ -105,15 +98,21 @@ static int tick_video(struct file_writer_t* file_writer,
                                         &active_streams,
                                         &active_stream_count);
 
-    MagickWand* output_wand;
-    magic_frame_start(&output_wand, out_width, out_height);
+    struct frame_builder_callback_data_t* callback_data =
+    (struct frame_builder_callback_data_t*)
+    malloc(sizeof(struct frame_builder_callback_data_t));
+    callback_data->clock_time = clock_time;
+    callback_data->file_writer = file_writer;
+    frame_builder_begin_frame(frame_builder, out_width, out_height,
+                              (enum AVPixelFormat)AV_PIX_FMT_YUV420P,
+                              callback_data);
 
     int wrote_frames = 0;
     // append source frames to magic frame
     for (int i = 0; i < active_stream_count; i++) {
         struct archive_stream_t* stream = active_streams[i];
         if (!archive_stream_has_video_for_time(stream, clock_time,
-                                              clock_time_base))
+                                               clock_time_base))
         {
             continue;
         }
@@ -125,124 +124,27 @@ static int tick_video(struct file_writer_t* file_writer,
             continue;
         }
 
-//        // compute how far off we are
-//        int64_t delta = global_clock - offset_pts;
-//        if (delta > abs(global_tick_time)) {
-//            printf("Stream %d current offset vs global clock: %lld\n",
-//                   i, delta);
-//        }
-        magic_frame_add(output_wand,
-                        frame,
-                        archive_stream_get_offset_x(stream),
-                        archive_stream_get_offset_y(stream),
-                        archive_stream_get_render_width(stream),
-                        archive_stream_get_render_height(stream));
+        struct frame_builder_subframe_t subframe;
+        subframe.frame = frame;
+        subframe.x_offset = archive_stream_get_offset_x(stream);
+        subframe.y_offset = archive_stream_get_offset_y(stream);
+        subframe.render_width = archive_stream_get_render_height(stream);
+        subframe.render_height = archive_stream_get_render_width(stream);
+        
+        frame_builder_add_subframe(frame_builder, &subframe);
+
         wrote_frames++;
 
     }
-    printf("Wrote %d frames to magic frame\n", wrote_frames);
+    printf("Prepped %d magic frames\n", wrote_frames);
 
-    ret = magic_frame_finish(output_wand, output_frame);
-
-    if (!ret) {
-        output_frame->pts = clock_time;
-        ret = file_writer_push_video_frame(file_writer, output_frame);
-    }
-end:
-    av_frame_free(&output_frame);
+    frame_builder_finish_frame(frame_builder, frame_builder_cb);
     return ret;
 }
 
 void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
 {
     vprintf(fmt, vargs);
-}
-
-int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
-{
-    int rv = remove(fpath);
-
-    if (rv)
-        perror(fpath);
-
-    return rv;
-}
-
-int rmrf(const char *path)
-{
-    return nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
-}
-
-static void safe_create_dir(const char *dir)
-{
-    if (mkdir(dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) < 0) {
-        if (errno != EEXIST) {
-            perror(dir);
-            exit(1);
-        }
-    }
-}
-
-char* unzip_archive(const char* path) {
-    int err, i, fd;
-    int64_t sum, len;
-    struct zip_file *zf;
-    struct zip_stat sb;
-    char buf[100];
-    struct zip* za = zip_open(path, ZIP_CHECKCONS | ZIP_RDONLY, &err);
-    if (NULL == za) {
-        zip_error_to_str(buf, sizeof(buf), err, errno);
-        printf("can't open zip archive `%s': %s/n",
-                path, buf);
-        return NULL;
-    }
-
-    const char* working_directory = "out";
-    rmrf(working_directory);
-    safe_create_dir(working_directory);
-    err = chdir(working_directory);
-
-    for (i = 0; i < zip_get_num_entries(za, 0); i++) {
-        if (zip_stat_index(za, i, 0, &sb) == 0) {
-            printf("==================\n");
-            len = strlen(sb.name);
-            printf("Name: [%s], ", sb.name);
-            printf("Size: [%llu], ", sb.size);
-            printf("mtime: [%u]\n", (unsigned int)sb.mtime);
-            if (sb.name[len - 1] == '/') {
-                safe_create_dir(sb.name);
-            } else {
-                zf = zip_fopen_index(za, i, 0);
-                if (!zf) {
-                    fprintf(stderr, "boese, boese\n");
-                    exit(100);
-                }
-
-                fd = open(sb.name, O_RDWR | O_TRUNC | O_CREAT, 0644);
-                if (fd < 0) {
-                    fprintf(stderr, "boese, boese\n");
-                    exit(101);
-                }
-
-                sum = 0;
-                while (sum != sb.size) {
-                    len = zip_fread(zf, buf, 100);
-                    if (len < 0) {
-                        fprintf(stderr, "boese, boese\n");
-                        exit(102);
-                    }
-                    write(fd, buf, len);
-                    sum += len;
-                }
-                close(fd);
-                zip_fclose(zf);
-            }
-        } else {
-            printf("File[%s] Line[%d]/n", __FILE__, __LINE__);
-        }
-    }
-    char* pwd = getcwd(NULL, 0);
-    return pwd;
 }
 
 int main(int argc, char **argv)
@@ -289,6 +191,9 @@ int main(int argc, char **argv)
     file_writer_alloc(&file_writer);
     file_writer_open(file_writer, "output.mp4", out_width, out_height);
 
+    struct frame_builder_t* frame_builder;
+    frame_builder_alloc(&frame_builder);
+
     AVRational global_time_base = {1, 1000};
     // todo: fix video_fps to coordinate with the file writer
     float out_video_fps = 30;
@@ -328,7 +233,8 @@ int main(int argc, char **argv)
 
         if (need_video) {
             last_video_time = global_clock;
-            tick_video(file_writer, archive, global_clock, global_time_base);
+            tick_video(file_writer, frame_builder, archive,
+                       global_clock, global_time_base);
         }
 
         global_clock++;
@@ -352,5 +258,5 @@ end:
     char cwd[1024];
     printf("%s\n", getcwd(cwd, sizeof(cwd)));
     
-    exit(0);
+    return(0);
 }
