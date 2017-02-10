@@ -128,8 +128,8 @@ static int tick_video(struct file_writer_t* file_writer,
         subframe.frame = frame;
         subframe.x_offset = archive_stream_get_offset_x(stream);
         subframe.y_offset = archive_stream_get_offset_y(stream);
-        subframe.render_width = archive_stream_get_render_height(stream);
-        subframe.render_height = archive_stream_get_render_width(stream);
+        subframe.render_width = archive_stream_get_render_width(stream);
+        subframe.render_height = archive_stream_get_render_height(stream);
         
         frame_builder_add_subframe(frame_builder, &subframe);
 
