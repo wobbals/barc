@@ -27,11 +27,6 @@ int audio_mixer_get_samples(struct archive_t* archive,
 {
     int ret;
 
-    // get active streams
-    // buffer contiguous data at least until we have enough to fill a frame
-    // merge contiguous data
-    // return
-
     struct archive_stream_t** active_streams;
     int active_stream_count;
     ret = archive_get_active_streams_for_time(archive, clock_time,
@@ -50,9 +45,7 @@ int audio_mixer_get_samples(struct archive_t* archive,
         (int16_t*) calloc(sizeof(int16_t), output_frame->nb_samples);
     }
     assert(output_frame->format == AV_SAMPLE_FMT_FLTP);
-    // third loop to handle multiple channels
     float** dest_samples = (float**)output_frame->data;
-
 
     // third loop for each active stream
     for (int i = 0; i < active_stream_count; i++) {

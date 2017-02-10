@@ -91,6 +91,7 @@
 		D49D2CDA1E404A2E005096BF /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD91E404A2E005096BF /* AppKit.framework */; };
 		D49D2CDC1E404A4B005096BF /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CDB1E404A4B005096BF /* OpenGL.framework */; };
 		D4EEBD4E1E4D13CB0004B76A /* libzip.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */; };
+		D4EEBD541E4D289B0004B76A /* file_writer.c in Sources */ = {isa = PBXBuildFile; fileRef = D4EEBD521E4D289B0004B76A /* file_writer.c */; };
 		D4F5FAB21E4253BA00328734 /* audio_mixer.cc in Sources */ = {isa = PBXBuildFile; fileRef = D4F5FAB01E4253BA00328734 /* audio_mixer.cc */; };
 /* End PBXBuildFile section */
 
@@ -283,6 +284,8 @@
 		D49D2CD91E404A2E005096BF /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		D49D2CDB1E404A4B005096BF /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libzip.4.dylib; path = ../../../../usr/local/Cellar/libzip/1.1.2/lib/libzip.4.dylib; sourceTree = "<group>"; };
+		D4EEBD521E4D289B0004B76A /* file_writer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = file_writer.c; sourceTree = "<group>"; };
+		D4EEBD531E4D289B0004B76A /* file_writer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = file_writer.h; sourceTree = "<group>"; };
 		D4F5FAB01E4253BA00328734 /* audio_mixer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = audio_mixer.cc; sourceTree = "<group>"; };
 		D4F5FAB11E4253BA00328734 /* audio_mixer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = audio_mixer.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -523,6 +526,8 @@
 				D47018BB1E3BC57F0040257B /* Geometry.h */,
 				D4F5FAB01E4253BA00328734 /* audio_mixer.cc */,
 				D4F5FAB11E4253BA00328734 /* audio_mixer.h */,
+				D4EEBD521E4D289B0004B76A /* file_writer.c */,
+				D4EEBD531E4D289B0004B76A /* file_writer.h */,
 			);
 			path = barc;
 			sourceTree = "<group>";
@@ -638,6 +643,7 @@
 				D470188D1E3BC5130040257B /* context.cpp in Sources */,
 				D47018A81E3BC5130040257B /* error.c in Sources */,
 				D47018B81E3BC5130040257B /* utf8_strings.cpp in Sources */,
+				D4EEBD541E4D289B0004B76A /* file_writer.c in Sources */,
 				D470189C1E3BC5130040257B /* el_para.cpp in Sources */,
 				D47018A41E3BC5130040257B /* el_tr.cpp in Sources */,
 				D47018AF1E3BC5130040257B /* util.c in Sources */,
