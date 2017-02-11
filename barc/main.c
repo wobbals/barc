@@ -7,10 +7,12 @@
 //
 
 #include <unistd.h>
+#include <ctype.h>
 #include <libavformat/avformat.h>
 #include <assert.h>
 #include <MagickWand/MagickWand.h>
 #include <uv.h>
+
 
 #include "yuv_rgb.h"
 #include "archive_stream.h"
@@ -19,9 +21,6 @@
 #include "file_writer.h"
 #include "zipper.h"
 #include "frame_builder.h"
-
-const int out_width = 640;
-const int out_height = 480;
 
 static int tick_audio(struct file_writer_t* file_writer,
                       struct archive_t* archive, int64_t global_clock,
@@ -102,7 +101,8 @@ static int tick_video(struct file_writer_t* file_writer,
     malloc(sizeof(struct frame_builder_callback_data_t));
     callback_data->clock_time = clock_time;
     callback_data->file_writer = file_writer;
-    frame_builder_begin_frame(frame_builder, out_width, out_height,
+    frame_builder_begin_frame(frame_builder,
+                              file_writer->out_width, file_writer->out_height,
                               (enum AVPixelFormat)AV_PIX_FMT_YUV420P,
                               callback_data);
 
@@ -144,6 +144,61 @@ void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
 
 int main(int argc, char **argv)
 {
+    char* input_path = NULL;
+    char* output_path = NULL;
+    char* css_preset = NULL;
+    char* css_custom = NULL;
+    int out_width = 0;
+    int out_height = 0;
+    int c;
+
+    while ((c = getopt (argc, argv, "i:o:w:h:p:c:")) != -1) {
+        switch (c)
+        {
+            case 'i':
+                input_path = optarg;
+                break;
+            case 'o':
+                output_path = optarg;
+                break;
+            case 'w':
+                out_width = atoi(optarg);
+                break;
+            case 'h':
+                out_height = atoi(optarg);
+                break;
+            case 'p':
+                css_preset = optarg;
+                break;
+            case 'c':
+                css_custom = optarg;
+                break;
+            case '?':
+                if (isprint (optopt))
+                    fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+                else
+                    fprintf (stderr,
+                             "Unknown option character `\\x%x'.\n",
+                             optopt);
+                return 1;
+            default:
+                abort ();
+        }
+    }
+
+    if (!input_path) {
+        input_path = "/Users/charley/src/barc/sample/audio_sync.zip";
+    }
+    if (!output_path) {
+        output_path = "output.mp4";
+    }
+    if (!out_width) {
+        out_width = 640;
+    }
+    if (!out_height) {
+        out_height = 480;
+    }
+
     //av_log_set_level(AV_LOG_VERBOSE);
     //av_log_set_callback(my_log_callback);
 
@@ -154,37 +209,31 @@ int main(int argc, char **argv)
 
     MagickWandGenesis();
 
-    char* path;
-    if (1 >= argc) {
-        path = "/Users/charley/src/barc/sample/audio_sync.zip";
-    } else {
-        path = argv[1];
-    }
-
     struct stat file_stat;
-    stat(path, &file_stat);
+    stat(input_path, &file_stat);
 
     if (S_ISDIR(file_stat.st_mode)) {
-        printf("using directory %s\n", path);
+        printf("using directory %s\n", input_path);
     } else if (S_ISREG(file_stat.st_mode)) {
-        printf("attempt to unzip regular file %s\n", path);
-        path = unzip_archive(path);
+        printf("attempt to unzip regular file %s\n", input_path);
+        input_path = unzip_archive(input_path);
     } else {
-        printf("Unknown file type %s\n", path);
+        printf("Unknown file type %s\n", input_path);
         exit(-1);
     }
 
-    if (!path) {
+    if (!input_path) {
         printf("No working path. Exit.\n");
         exit(-1);
     }
 
     struct archive_t* archive;
-    archive_open(&archive, out_width, out_height, path);
+    archive_open(&archive, out_width, out_height, input_path,
+                 css_preset, css_custom);
 
     struct file_writer_t* file_writer;
     file_writer_alloc(&file_writer);
-    file_writer_open(file_writer, "output.mp4", out_width, out_height);
+    file_writer_open(file_writer, output_path, out_width, out_height);
 
     struct frame_builder_t* frame_builder;
     frame_builder_alloc(&frame_builder);

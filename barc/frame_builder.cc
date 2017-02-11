@@ -20,8 +20,8 @@ extern "C" {
 #include <map>
 
 static int job_counter;
-static void crunch(uv_work_t* work);
-static void after_crunch(uv_work_t* work, int status);
+static void crunch_frame(uv_work_t* work);
+static void after_crunch_frame(uv_work_t* work, int status);
 static void free_job(struct frame_job_t* job);
 static void frame_builder_worker(void* p);
 
@@ -117,10 +117,19 @@ int frame_builder_finish_frame(struct frame_builder_t* frame_builder,
     job->callback = callback;
     job->request.data = job;
     frame_builder->pending_jobs[job->serial_number] = job;
-    int ret = uv_queue_work(frame_builder->loop,
+    int ret = 0;
+
+    // This debug env var won't kill all threads, just the ones we create to
+    // offload magic frame generation.
+    if (getenv("BARC_DISABLE_MULTITHREADING")) {
+        crunch_frame(&job->request);
+        after_crunch_frame(&job->request, 0);
+    } else {
+        ret = uv_queue_work(frame_builder->loop,
                             &(job->request),
-                            crunch,
-                            after_crunch);
+                            crunch_frame,
+                            after_crunch_frame);
+    }
     return ret;
 }
 
@@ -142,7 +151,7 @@ static void free_job(struct frame_job_t* job) {
     free(job);
 }
 
-static void after_crunch(uv_work_t* work, int status) {
+static void after_crunch_frame(uv_work_t* work, int status) {
     struct frame_job_t* job = (struct frame_job_t*)work->data;
     struct frame_builder_t* builder = job->builder;
     // move job from pending to finished, but don't call callback just yet...
@@ -152,7 +161,6 @@ static void after_crunch(uv_work_t* work, int status) {
     // invoke callbacks and flush all finished jobs in order they were received.
     auto iter = builder->finished_jobs.find(builder->finish_serial);
     while (iter != builder->finished_jobs.end()) {
-        printf("Callback processed frame %d\n", iter->second->serial_number);
         iter->second->callback(iter->second->output_frame, iter->second->p);
         free_job(iter->second);
         builder->finished_jobs.erase(iter);
@@ -161,15 +169,14 @@ static void after_crunch(uv_work_t* work, int status) {
     }
 }
 
-static void crunch(uv_work_t* work) {
+static void crunch_frame(uv_work_t* work) {
     struct frame_job_t* job = (struct frame_job_t*)work->data;
     int ret;
     MagickWand* output_wand;
     magic_frame_start(&output_wand, job->width, job->height);
 
-    AVFrame* output_frame = av_frame_alloc();
-
     // Configure output frame buffer
+    AVFrame* output_frame = av_frame_alloc();
     output_frame->format = job->format;
     output_frame->width = job->width;
     output_frame->height = job->height;

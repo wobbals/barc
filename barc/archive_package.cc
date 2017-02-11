@@ -69,7 +69,8 @@ int open_manifest_item(struct archive_stream_t** stream, json_t* item) {
 }
 
 int archive_open(struct archive_t** archive_out, int width, int height,
-                 const char* path)
+                 const char* path,
+                 const char* css_preset, const char* css_custom)
 {
     int ret;
     glob_t globbuf;
@@ -119,6 +120,25 @@ int archive_open(struct archive_t** archive_out, int width, int height,
     }
 
     archive->layout = new ArchiveLayout(width, height);
+
+    // Choose layout management
+    if (!css_preset) {
+        css_preset = "bestFit";
+    }
+    std::string style_sheet;
+    if (!strcmp("bestFit", css_preset)) {
+        style_sheet = Layout::kBestfitCss;
+    } else if (!strcmp("verticalPresentation", css_preset)) {
+        style_sheet = Layout::kHorizontalPresentation;
+    } else if (!strcmp("horizontalPresentation", css_preset)) {
+        style_sheet = Layout::kHorizontalPresentation;
+    } else if (!strcmp("custom", css_preset)) {
+        style_sheet = css_custom;
+    } else {
+        printf("No stylesheet preset defined. Using bestfit.");
+        style_sheet = Layout::kBestfitCss;
+    }
+
     archive->layout->setStyleSheet(Layout::kBestfitCss);
 
     return 0;

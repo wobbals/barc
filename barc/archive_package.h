@@ -15,7 +15,8 @@
 struct archive_t;
 
 int archive_open(struct archive_t** archive_out, int width, int height,
-                 const char* path);
+                 const char* path,
+                 const char* css_preset, const char* css_custom);
 int archive_free(struct archive_t* archive);
 int archive_populate_stream_coords(struct archive_t* archive,
                                    int64_t clock_time,
