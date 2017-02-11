@@ -78,7 +78,6 @@ static void frame_builder_cb(AVFrame* frame, void *p) {
     if (ret) {
         printf("Unable to push video frame %lld\n", frame->pts);
     }
-    av_frame_free(&frame);
     free(p);
 }
 
@@ -107,7 +106,6 @@ static int tick_video(struct file_writer_t* file_writer,
                               (enum AVPixelFormat)AV_PIX_FMT_YUV420P,
                               callback_data);
 
-    int wrote_frames = 0;
     // append source frames to magic frame
     for (int i = 0; i < active_stream_count; i++) {
         struct archive_stream_t* stream = active_streams[i];
@@ -117,15 +115,15 @@ static int tick_video(struct file_writer_t* file_writer,
             continue;
         }
 
-        AVFrame* frame;
-        ret = archive_stream_get_video_for_time(stream, &frame,
+        struct smart_frame_t* smart_frame;
+        ret = archive_stream_get_video_for_time(stream, &smart_frame,
                                                 clock_time, clock_time_base);
-        if (NULL == frame || ret) {
+        if (NULL == smart_frame || ret) {
             continue;
         }
 
         struct frame_builder_subframe_t subframe;
-        subframe.frame = frame;
+        subframe.smart_frame = smart_frame;
         subframe.x_offset = archive_stream_get_offset_x(stream);
         subframe.y_offset = archive_stream_get_offset_y(stream);
         subframe.render_width = archive_stream_get_render_width(stream);
@@ -133,10 +131,7 @@ static int tick_video(struct file_writer_t* file_writer,
         
         frame_builder_add_subframe(frame_builder, &subframe);
 
-        wrote_frames++;
-
     }
-    printf("Prepped %d magic frames\n", wrote_frames);
 
     frame_builder_finish_frame(frame_builder, frame_builder_cb);
     return ret;
@@ -161,7 +156,7 @@ int main(int argc, char **argv)
 
     char* path;
     if (1 >= argc) {
-        path = "/Users/charley/src/barc/sample/allhands_sample.zip";
+        path = "/Users/charley/src/barc/sample/audio_sync.zip";
     } else {
         path = argv[1];
     }
@@ -246,6 +241,9 @@ end:
         fprintf(stderr, "Error occurred: %s\n", av_err2str(ret));
         //exit(1);
     }
+    // wait for all frames to write out before closing down.
+    frame_builder_join(frame_builder);
+    frame_builder_free(frame_builder);
     MagickWandTerminus();
 
     file_writer_close(file_writer);

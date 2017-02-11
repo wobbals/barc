@@ -35,7 +35,7 @@ struct archive_stream_t {
     AVCodecContext* audio_context;
     int video_stream_index;
     int audio_stream_index;
-    std::queue<AVFrame*> video_fifo;
+    std::queue<struct smart_frame_t*> video_fifo;
     std::deque<AVFrame*> audio_frame_fifo;
     int output_video_fps;
     AVAudioFifo* audio_sample_fifo;
@@ -126,7 +126,7 @@ int archive_stream_open(struct archive_stream_t** stream_out,
     assert(stream->audio_context->sample_fmt = AV_SAMPLE_FMT_S16);
     stream->audio_context->request_sample_fmt = AV_SAMPLE_FMT_S16;
 
-    stream->video_fifo = std::queue<AVFrame*>();
+    stream->video_fifo = std::queue<struct smart_frame_t*>();
     stream->audio_frame_fifo = std::deque<AVFrame*>();
     stream->start_offset = start_offset;
     stream->stop_offset = stop_offset;
@@ -167,9 +167,9 @@ int archive_stream_open(struct archive_stream_t** stream_out,
 int archive_stream_free(struct archive_stream_t* stream)
 {
     while (!stream->video_fifo.empty()) {
-        AVFrame* frame = stream->video_fifo.front();
+        smart_frame_t* frame = stream->video_fifo.front();
         stream->video_fifo.pop();
-        av_frame_free(&frame);
+        smart_frame_release(frame);
     }
     while (!stream->audio_frame_fifo.empty()) {
         AVFrame* frame = stream->audio_frame_fifo.front();
@@ -215,7 +215,9 @@ static int read_video_frame(struct archive_stream_t* stream)
 
             if (got_frame) {
                 frame->pts = av_frame_get_best_effort_timestamp(frame);
-                stream->video_fifo.push(frame);
+                smart_frame_t* smart_frame;
+                smart_frame_create(&smart_frame, frame);
+                stream->video_fifo.push(smart_frame);
             }
         } else {
             av_frame_free(&frame);
@@ -278,49 +280,52 @@ void archive_stream_set_output_video_fps(struct archive_stream_t* stream,
 }
 
 int archive_stream_get_video_for_time(struct archive_stream_t* stream,
-                                      AVFrame** frame,
+                                      smart_frame_t** smart_frame,
                                       int64_t clock_time,
                                       AVRational clock_time_base)
 {
     int ret = ensure_video_frame(stream);
     if (ret) {
-        *frame = NULL;
+        *smart_frame = NULL;
         return ret;
     }
     assert(!stream->video_fifo.empty());
-    AVFrame* front = stream->video_fifo.front();
+    smart_frame_t* smart_front = stream->video_fifo.front();
+    AVFrame* front = smart_frame_get(smart_front);
     AVStream* video_stream =
     stream->video_format_context->streams[stream->video_stream_index];
     int64_t local_time = av_rescale_q(clock_time, clock_time_base,
                                       video_stream->time_base);
     int64_t offset_pts = front->pts + stream->start_offset;
 
+    // pop frames off the fifo until we're caught up
     while (offset_pts < local_time) {
-        av_frame_free(&front);
+        smart_frame_release(smart_front);
         stream->video_fifo.pop();
         if (ensure_video_frame(stream)) {
             return -1;
         }
-        front = stream->video_fifo.front();
+        smart_front = stream->video_fifo.front();
+        front = smart_frame_get(smart_front);
         offset_pts = front->pts + stream->start_offset;
     }
 
     // after a certain point, we'll stop duplicating frames.
     // TODO: make this configurable maybe?
     if (local_time - offset_pts > 3000) {
-        *frame = NULL;
+        *smart_frame = NULL;
     } else {
-        *frame = front;
+        *smart_frame = smart_front;
     }
 
-    return (NULL == *frame);
+    return (NULL == *smart_frame);
 }
 
 int archive_stream_has_video_for_time(struct archive_stream_t* stream,
                                       int64_t clock_time,
                                       AVRational clock_time_base)
 {
-    AVFrame* frame;
+    struct smart_frame_t* frame;
     return 0 == archive_stream_get_video_for_time(stream, &frame,
                                                   clock_time, clock_time_base);
 }

@@ -95,6 +95,7 @@
 		D4EEBD561E4E51900004B76A /* libuv.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4EEBD551E4E51900004B76A /* libuv.1.dylib */; };
 		D4EEBD5A1E4E52220004B76A /* frame_builder.cc in Sources */ = {isa = PBXBuildFile; fileRef = D4EEBD581E4E52220004B76A /* frame_builder.cc */; };
 		D4EEBD5E1E4E53160004B76A /* zipper.c in Sources */ = {isa = PBXBuildFile; fileRef = D4EEBD5C1E4E53160004B76A /* zipper.c */; };
+		D4EEBD651E4E95510004B76A /* smart_avframe.c in Sources */ = {isa = PBXBuildFile; fileRef = D4EEBD631E4E95510004B76A /* smart_avframe.c */; };
 		D4F5FAB21E4253BA00328734 /* audio_mixer.cc in Sources */ = {isa = PBXBuildFile; fileRef = D4F5FAB01E4253BA00328734 /* audio_mixer.cc */; };
 /* End PBXBuildFile section */
 
@@ -294,6 +295,8 @@
 		D4EEBD591E4E52220004B76A /* frame_builder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = frame_builder.h; sourceTree = "<group>"; };
 		D4EEBD5C1E4E53160004B76A /* zipper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = zipper.c; sourceTree = "<group>"; };
 		D4EEBD5D1E4E53160004B76A /* zipper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = zipper.h; sourceTree = "<group>"; };
+		D4EEBD631E4E95510004B76A /* smart_avframe.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = smart_avframe.c; sourceTree = "<group>"; };
+		D4EEBD641E4E95510004B76A /* smart_avframe.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = smart_avframe.h; sourceTree = "<group>"; };
 		D4F5FAB01E4253BA00328734 /* audio_mixer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = audio_mixer.cc; sourceTree = "<group>"; };
 		D4F5FAB11E4253BA00328734 /* audio_mixer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = audio_mixer.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -541,6 +544,8 @@
 				D4EEBD591E4E52220004B76A /* frame_builder.h */,
 				D4EEBD5C1E4E53160004B76A /* zipper.c */,
 				D4EEBD5D1E4E53160004B76A /* zipper.h */,
+				D4EEBD631E4E95510004B76A /* smart_avframe.c */,
+				D4EEBD641E4E95510004B76A /* smart_avframe.h */,
 			);
 			path = barc;
 			sourceTree = "<group>";
@@ -658,6 +663,7 @@
 				D47018A81E3BC5130040257B /* error.c in Sources */,
 				D47018B81E3BC5130040257B /* utf8_strings.cpp in Sources */,
 				D4EEBD541E4D289B0004B76A /* file_writer.c in Sources */,
+				D4EEBD651E4E95510004B76A /* smart_avframe.c in Sources */,
 				D470189C1E3BC5130040257B /* el_para.cpp in Sources */,
 				D47018A41E3BC5130040257B /* el_tr.cpp in Sources */,
 				D47018AF1E3BC5130040257B /* util.c in Sources */,

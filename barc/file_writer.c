@@ -41,12 +41,13 @@ static int open_output_file(struct file_writer_t* file_writer,
 int file_writer_alloc(struct file_writer_t** writer) {
     struct file_writer_t* result =
     (struct file_writer_t*) calloc(1, sizeof(struct file_writer_t));
-
+    uv_mutex_init(&result->write_lock);
     *writer = result;
     return 0;
 }
 
 void file_writer_free(struct file_writer_t* writer) {
+    uv_mutex_destroy(&writer->write_lock);
     free(writer);
 }
 
@@ -481,6 +482,15 @@ static int open_output_file(struct file_writer_t* file_writer,
     return 0;
 }
 
+static int safe_write_packet(struct file_writer_t* file_writer,
+                             AVPacket* packet)
+{
+    uv_mutex_lock(&file_writer->write_lock);
+    int ret = av_interleaved_write_frame(file_writer->format_ctx_out, packet);
+    uv_mutex_unlock(&file_writer->write_lock);
+    return ret;
+}
+
 static int write_audio_frame(struct file_writer_t* file_writer,
                       AVFrame* frame)
 {
@@ -506,8 +516,10 @@ static int write_audio_frame(struct file_writer_t* file_writer,
         printf("Write audio frame %lld, size=%d pts=%lld duration=%lld\n",
                file_writer->audio_frame_ct, pkt.size, pkt.pts, pkt.duration);
         file_writer->audio_frame_ct++;
-        ret = av_interleaved_write_frame(file_writer->format_ctx_out, &pkt);
-
+        ret = safe_write_packet(file_writer, &pkt);
+        if (ret) {
+            printf("tilt");
+        }
     } else {
         ret = 0;
     }
@@ -568,7 +580,11 @@ static int write_video_frame(struct file_writer_t* file_writer,
         printf("Write video frame %lld, size=%d pts=%lld\n",
                file_writer->video_frame_ct, pkt.size, pkt.pts);
         file_writer->video_frame_ct++;
-        ret = av_interleaved_write_frame(file_writer->format_ctx_out, &pkt);
+        ret = safe_write_packet(file_writer, &pkt);
+        if (ret) {
+            printf("tilt");
+        }
+
     } else {
         ret = 0;
     }
@@ -580,7 +596,10 @@ static int write_video_frame(struct file_writer_t* file_writer,
 
 int file_writer_close(struct file_writer_t* file_writer)
 {
-    av_write_trailer(file_writer->format_ctx_out);
+    int ret = av_write_trailer(file_writer->format_ctx_out);
+    if (ret) {
+        printf("no trailer!\n");
+    }
     avcodec_close(file_writer->video_ctx_out);
     
     if (!(file_writer->format_ctx_out->oformat->flags & AVFMT_NOFILE)) {

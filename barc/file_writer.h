@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
+#include <uv.h>
 
 struct file_writer_t {
     int out_width;
@@ -35,7 +36,8 @@ struct file_writer_t {
     AVStream* audio_stream;
     int64_t video_frame_ct;
     int64_t audio_frame_ct;
-    
+
+    uv_mutex_t write_lock;
 };
 
 int file_writer_alloc(struct file_writer_t** writer);

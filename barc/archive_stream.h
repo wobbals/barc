@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include "smart_avframe.h"
 
 struct archive_stream_t;
 
@@ -26,7 +27,7 @@ void archive_stream_set_output_video_fps(struct archive_stream_t* stream,
                                          int fps);
 
 int archive_stream_get_video_for_time(struct archive_stream_t* stream,
-                                      AVFrame** frame,
+                                      struct smart_frame_t** frame,
                                       int64_t clock_time,
                                       AVRational clock_time_base);
 

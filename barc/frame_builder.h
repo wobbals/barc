@@ -11,11 +11,12 @@
 
 #include <stdio.h>
 #include <libavutil/frame.h>
+#include "smart_avframe.h"
 
 struct frame_builder_t;
 
 struct frame_builder_subframe_t {
-    AVFrame* frame;
+    struct smart_frame_t* smart_frame;
     int x_offset;
     int y_offset;
     int render_width;
@@ -34,6 +35,6 @@ int frame_builder_add_subframe(struct frame_builder_t* frame_builder,
                                struct frame_builder_subframe_t* subframe);
 int frame_builder_finish_frame(struct frame_builder_t* frame_builder,
                                frame_builder_cb_t callback);
-void frame_builder_release_frame();
+int frame_builder_join(struct frame_builder_t* frame_builder);
 
 #endif /* frame_builder_h */
