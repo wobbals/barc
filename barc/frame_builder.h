@@ -35,6 +35,6 @@ int frame_builder_add_subframe(struct frame_builder_t* frame_builder,
                                struct frame_builder_subframe_t* subframe);
 int frame_builder_finish_frame(struct frame_builder_t* frame_builder,
                                frame_builder_cb_t callback);
-int frame_builder_join(struct frame_builder_t* frame_builder);
+int frame_builder_wait(struct frame_builder_t* frame_builder, int min);
 
 #endif /* frame_builder_h */

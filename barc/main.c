@@ -291,7 +291,7 @@ end:
         //exit(1);
     }
     // wait for all frames to write out before closing down.
-    frame_builder_join(frame_builder);
+    frame_builder_wait(frame_builder, 0);
     frame_builder_free(frame_builder);
     MagickWandTerminus();
 

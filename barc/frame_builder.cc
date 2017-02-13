@@ -40,6 +40,8 @@ struct frame_job_t {
 
 struct frame_builder_t {
     struct frame_job_t* current_job;
+    uv_mutex_t job_queue_lock;
+    int max_queue_size;
     std::map<int, struct frame_job_t*>pending_jobs;
     std::map<int, struct frame_job_t*>finished_jobs;
     char running;
@@ -63,10 +65,17 @@ int frame_builder_alloc(struct frame_builder_t** frame_builder) {
     char str[4];
     sprintf(str, "%d", cpu_count);
     uv_free_cpu_info(cpu_infos, cpu_count);
-    // or, you know, don't. see what works for you.
+    // or, don't. your mileage may vary. see what works for you.
     //setenv("UV_THREADPOOL_SIZE", str, 0);
     uv_loop_init(result->loop);
     uv_thread_create(&result->loop_thread, frame_builder_worker, result);
+
+    // configure job queue size. bigger queue uses more memory, but not
+    // necessarily improves performance.
+    // this should be at least as big as the thread pool size, just to give
+    // all the available resources something to do.
+    result->max_queue_size = 64;
+    uv_mutex_init(&result->job_queue_lock);
 
     *frame_builder = result;
     return 0;
@@ -80,6 +89,7 @@ void frame_builder_free(struct frame_builder_t* frame_builder) {
         ret = uv_loop_close(frame_builder->loop);
     } while (UV_EBUSY == ret);
     uv_thread_join(&frame_builder->loop_thread);
+    uv_mutex_destroy(&frame_builder->job_queue_lock);
     free(frame_builder);
 }
 
@@ -116,8 +126,21 @@ int frame_builder_finish_frame(struct frame_builder_t* frame_builder,
     struct frame_job_t* job = frame_builder->current_job;
     job->callback = callback;
     job->request.data = job;
-    frame_builder->pending_jobs[job->serial_number] = job;
     int ret = 0;
+
+    size_t current_queue_size = frame_builder->pending_jobs.size();
+    if (current_queue_size > frame_builder->max_queue_size) {
+        printf("Queue size exceeded. Drain half before proceeding.\n");
+        frame_builder_wait(frame_builder, (int)current_queue_size / 2);
+    }
+
+    uv_mutex_lock(&frame_builder->job_queue_lock);
+    frame_builder->pending_jobs[job->serial_number] = job;
+    uv_mutex_unlock(&frame_builder->job_queue_lock);
+    // release the lock before doing anything crazy
+    printf("Schedule job %d. Pending queue size: %lu\n",
+           job->serial_number,
+           current_queue_size);
 
     // This debug env var won't kill all threads, just the ones we create to
     // offload magic frame generation.
@@ -133,11 +156,11 @@ int frame_builder_finish_frame(struct frame_builder_t* frame_builder,
     return ret;
 }
 
-int frame_builder_join(struct frame_builder_t* frame_builder) {
-    while (!frame_builder->pending_jobs.empty() ||
-           !frame_builder->finished_jobs.empty())
+int frame_builder_wait(struct frame_builder_t* frame_builder, int min) {
+    while (frame_builder->pending_jobs.size() >= min ||
+           frame_builder->finished_jobs.size() >= min)
     {
-        sleep(1);
+        usleep(1000);
     }
     return 0;
 }
@@ -155,8 +178,10 @@ static void after_crunch_frame(uv_work_t* work, int status) {
     struct frame_job_t* job = (struct frame_job_t*)work->data;
     struct frame_builder_t* builder = job->builder;
     // move job from pending to finished, but don't call callback just yet...
+    uv_mutex_lock(&builder->job_queue_lock);
     builder->pending_jobs.erase(job->serial_number);
     builder->finished_jobs[job->serial_number] = job;
+    uv_mutex_unlock(&builder->job_queue_lock);
 
     // invoke callbacks and flush all finished jobs in order they were received.
     auto iter = builder->finished_jobs.find(builder->finish_serial);
@@ -171,6 +196,9 @@ static void after_crunch_frame(uv_work_t* work, int status) {
 
 static void crunch_frame(uv_work_t* work) {
     struct frame_job_t* job = (struct frame_job_t*)work->data;
+    if (244 == job->serial_number) {
+        printf("trap");
+    }
     int ret;
     MagickWand* output_wand;
     magic_frame_start(&output_wand, job->width, job->height);

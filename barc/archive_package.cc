@@ -63,7 +63,15 @@ int open_manifest_item(struct archive_stream_t** stream, json_t* item) {
         return -1;
     }
     const char* stream_id = json_string_value(node);
-    ret = archive_stream_open(stream, filename_str, start, stop, stream_id, "");
+
+    const char* stream_class = "";
+    node = json_object_get(item, "layoutClass");
+    if (json_is_string(node)) {
+        stream_class = json_string_value(node);
+    }
+
+    ret = archive_stream_open(stream, filename_str, start, stop,
+                              stream_id, stream_class);
     printf("parsed archive stream %s\n", filename_str);
     return ret;
 }
