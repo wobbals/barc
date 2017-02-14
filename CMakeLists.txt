@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.6)
+cmake_minimum_required (VERSION 3.5)
 project (Barc)
 
 #include_directories ("src" "ext")
@@ -6,6 +6,7 @@ project (Barc)
 file(GLOB SOURCES "barc/*.c" "barc/*.cpp" "barc/*.cc")
 
 set (CMAKE_CXX_FLAGS "--std=gnu++11 ${CMAKE_CXX_FLAGS}")
+set (CMAKE_C_FLAGS "--std=gnu99 ${CMAKE_C_FLAGS}")
 
 add_executable (barc ${SOURCES})
 

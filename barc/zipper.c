@@ -6,6 +6,8 @@
 //  Copyright © 2017 TokBox, Inc. All rights reserved.
 //
 
+#define _XOPEN_SOURCE 500
+
 #include "zipper.h"
 #include <stdlib.h>
 #include <unistd.h>
