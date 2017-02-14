@@ -14,10 +14,10 @@ Build using CMake. In addition to cmake you will need:
 ..* ffmpeg also needs libopus to work with TokBox archives. The built in opus
     codec _will not do_.
 * libopus
-* libuv
-* libjansson
-* libzip
-* magickwand 7 (of ImageMagick fame)
+* libuv (ubuntu package `apt-get install libuv1 libuv1-dev`)
+* libjansson (ubuntu package `apt-get install libjansson4 libjansson-dev`)
+* libzip (ubuntu package `apt-get install libzip4 libzip-dev`)
+* magickwand 7 (of ImageMagick fame) - version 6 might work, but is untested.
 
 For each of these packages, we use pkg-config to autodiscover the needed linker
 and compiler flags. If `pkg-config --libs libavcodec` does not return anything
