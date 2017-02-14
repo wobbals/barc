@@ -55,6 +55,10 @@ int audio_mixer_get_samples(struct archive_t* archive,
                                                output_frame->sample_rate,
                                                source_samples,
                                                clock_time, time_base);
+        // don't copy in samples we haven't read
+        if (ret != output_frame->nb_samples) {
+            continue;
+        }
         // second loop for each channel
         for (int j = 0; j < output_frame->channels; j++) {
             // first loop to copy samples for a channel

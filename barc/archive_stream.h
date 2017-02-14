@@ -35,6 +35,9 @@ int archive_stream_has_video_for_time(struct archive_stream_t* stream,
                                       int64_t clock_time,
                                       AVRational clock_time_base);
 
+/**
+ * @return The number of samples read into *samples_out
+ */
 int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
                                      int num_samples,
                                      enum AVSampleFormat format,

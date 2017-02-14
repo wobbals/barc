@@ -253,44 +253,61 @@ int main(int argc, char **argv)
     (double)file_writer->audio_ctx_out->sample_rate;
     double last_audio_time = 0;
     double last_video_time = 0;
-    char need_video;
-    char need_audio;
+    double next_clock;
 
     int64_t archive_finish_time = archive_get_finish_clock_time(archive);
 
+    double next_clock_times[2];
+    next_clock_times[0] = audio_tick_time;
+    next_clock_times[1] = video_tick_time;
+    char need_track[2];
+    need_track[0] = 1;
+    need_track[1] = 1;
+
     /* kick off the global clock and begin composing */
     while (archive_finish_time >= global_clock) {
-        need_audio = (global_clock - last_audio_time) >= audio_tick_time;
-        need_video = (global_clock - last_video_time) >= video_tick_time;
-
-        // skip this tick if there are no frames need rendering
-        if (!need_audio && !need_video) {
-            global_clock += 0.001;
-            continue;
-        }
 
         printf("global_clock: %f need_audio:%d need_video:%d\n",
-               global_clock, need_audio, need_video);
+               global_clock, need_track[0], need_track[1]);
 
-        if (need_audio) {
+        if (need_track[0]) {
             last_audio_time = global_clock;
             audio_clock = av_rescale_q(global_clock, global_time_base,
                                        audio_time_base);
             tick_audio(file_writer, archive, audio_clock, audio_time_base);
+
+            next_clock_times[0] = global_clock + audio_tick_time;
         }
 
-        if (need_video) {
+        if (need_track[1]) {
             last_video_time = global_clock;
             tick_video(file_writer, frame_builder, archive,
                        global_clock, global_time_base);
+
+            next_clock_times[1] = global_clock + video_tick_time;
         }
 
-        // floating point clock doesn't quite increment cleanly. blame it
-        // on the aac encoder that insists on such an unusual frame time as
-        // 1024 samples per frame. still, it would be better to calculate
-        // exactly when we need to wake up again, so:
-        // TODO: calculate exactly when we need to wake up again.
-        global_clock += 0.001;
+        // calculate exactly when we need to wake up again.
+        // first, assume audio is next.
+        next_clock = next_clock_times[0];
+        if (fabs(next_clock - next_clock_times[1]) < 0.0001) {
+            // if we land on a common factor of both track intervals, floating
+            // point math might not make a perfect match between the two
+            // floating timestamps. grab both tracks on the next tick
+            need_track[1] = 1;
+            need_track[0] = 1;
+        } else if (next_clock > next_clock_times[1]) {
+            // otherwise, check to see if audio is indeed the next track
+            next_clock = next_clock_times[1];
+            need_track[1] = 1;
+            need_track[0] = 0;
+        } else {
+            // take only what we need
+            need_track[0] = 1;
+            need_track[1] = 0;
+        }
+
+        global_clock = next_clock;
     }
 end:
     //av_frame_free(&filt_frame);

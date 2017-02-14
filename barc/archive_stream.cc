@@ -144,27 +144,29 @@ int archive_stream_open(struct archive_stream_t** stream_out,
     // should this be dynamic?
     stream->audio_sample_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_S16, 1, 4098);
 
-    ret = ensure_audio_frames(stream);
     AVStream* audio_stream =
     stream->audio_format_context->streams[stream->audio_stream_index];
+    ret = ensure_audio_frames(stream);
     if (ret) {
-        // don't worry about audio fifos. we'll fill in silence.
-        // this may be costly in memory if there is never audio on the stream
-        int64_t num_samples =
-        samples_per_pts(stream->audio_context->sample_rate,
-                        stream->stop_offset,
-                        audio_stream->time_base);
-        insert_silence(stream, num_samples, 0, stream->stop_offset);
+        // don't worry about audio fifos. we'll silently fail in case there is
+        // still meaningful data inside the conatiner.
+//        int64_t num_samples =
+//        samples_per_pts(stream->audio_context->sample_rate,
+//                        20, audio_stream->time_base);
+//        insert_silence(stream, num_samples, 0, 20);
     }
 
+    // if there is good audio data later on, but it doesn't arrive at the
+    // start offset time,
     // add silence to head of queue before the first audio packet plays out
-    AVFrame* frame = stream->audio_frame_fifo.front();
-    if (frame->pts > 0) {
+    if (!ret && stream->audio_frame_fifo.front()->pts > 0) {
+        AVFrame* frame = stream->audio_frame_fifo.front();
         int64_t num_samples =
         samples_per_pts(stream->audio_context->sample_rate,
                         frame->pts,
                         audio_stream->time_base);
         if (num_samples > 0) {
+            // Silence should run from time 0 to the first real packet pts
             insert_silence(stream, num_samples, 0, frame->pts);
         }
     }
@@ -437,19 +439,22 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
                                      int64_t clock_time,
                                      AVRational time_base)
 {
+    assert(48000 == sample_rate);
+    assert(format == AV_SAMPLE_FMT_S16);
     int ret = 0;
     AVStream* audio_stream =
     stream->audio_format_context->streams[stream->audio_stream_index];
     int64_t local_ts = av_rescale_q(clock_time, time_base,
                                     audio_stream->time_base);
-    int local_pts_interval = pts_per_sample(sample_rate, num_samples,
+    int requested_pts_interval = pts_per_sample(sample_rate, num_samples,
                                             audio_stream->time_base);
+    int fifo_size = av_audio_fifo_size(stream->audio_sample_fifo);
+    float fifo_pts_length = pts_per_sample(sample_rate, fifo_size,
+                                           audio_stream->time_base);
     // TODO: This needs to be aware of the sample rate and format of the
     // receiver
-    assert(48000 == sample_rate);
-    assert(format == AV_SAMPLE_FMT_S16);
     printf("pop %d time units of audio samples (%d total) for local ts %lld\n",
-           local_pts_interval, num_samples, local_ts);
+           requested_pts_interval, num_samples, local_ts);
     printf("audio fifo size before: %d\n",
            av_audio_fifo_size(stream->audio_sample_fifo));
     while (num_samples > av_audio_fifo_size(stream->audio_sample_fifo) && !ret)
@@ -459,7 +464,6 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
     printf("audio fifo size after: %d\n", av_audio_fifo_size(stream->audio_sample_fifo));
 
     if (ret) {
-        printf("can't get more samples\n");
         return ret;
     }
 
@@ -468,9 +472,10 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
     assert(ret == num_samples);
     printf("pop %d audio samples for local ts %lld %s\n",
            num_samples, local_ts, stream->sz_name);
-    int clock_drift = (int)
-    (local_ts - (stream->audio_last_pts + stream->start_offset));
-    printf("audio clock drift=%d\n", clock_drift);
+    int64_t offset_ts = stream->audio_last_pts + stream->start_offset;
+    int clock_drift = (int) (local_ts - offset_ts);
+    printf("stream %s audio clock drift=%d local_ts=%lld offset_ts=%lld\n",
+           stream->sz_name, clock_drift, local_ts, offset_ts);
     if (clock_drift > 1000) {
         // global clock is ahead of the stream. truncate some data (better yet,
         // squish some samples together
