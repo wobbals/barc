@@ -290,13 +290,19 @@ end:
         fprintf(stderr, "Error occurred: %s\n", av_err2str(ret));
         //exit(1);
     }
+
+    printf("Waiting for frame builder queue to finish...");
     // wait for all frames to write out before closing down.
     frame_builder_wait(frame_builder, 0);
     frame_builder_free(frame_builder);
+    printf("..done!\n");
+
     MagickWandTerminus();
 
+    printf("Close file writer..");
     file_writer_close(file_writer);
     file_writer_free(file_writer);
+    printf("..done!\n");
 
     time_t finish_time = time(NULL);
 

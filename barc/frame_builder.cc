@@ -157,8 +157,8 @@ int frame_builder_finish_frame(struct frame_builder_t* frame_builder,
 }
 
 int frame_builder_wait(struct frame_builder_t* frame_builder, int min) {
-    while (frame_builder->pending_jobs.size() >= min ||
-           frame_builder->finished_jobs.size() >= min)
+    while (frame_builder->pending_jobs.size() > min ||
+           frame_builder->finished_jobs.size() > min)
     {
         usleep(1000);
     }

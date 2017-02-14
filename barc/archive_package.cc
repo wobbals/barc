@@ -147,7 +147,7 @@ int archive_open(struct archive_t** archive_out, int width, int height,
         style_sheet = Layout::kBestfitCss;
     }
 
-    archive->layout->setStyleSheet(Layout::kBestfitCss);
+    archive->layout->setStyleSheet(style_sheet);
 
     return 0;
 }
