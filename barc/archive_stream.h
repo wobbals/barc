@@ -44,7 +44,8 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
                                      AVRational time_base);
 
 int archive_stream_is_active_at_time(struct archive_stream_t* stream,
-                                     int64_t global_time);
+                                     int64_t global_time,
+                                     AVRational time_base);
 
 
 int archive_stream_get_offset_x(struct archive_stream_t* stream);

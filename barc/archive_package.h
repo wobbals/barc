@@ -25,6 +25,7 @@ int archive_populate_stream_coords(struct archive_t* archive,
 int64_t archive_get_finish_clock_time(struct archive_t* archive);
 int archive_get_active_streams_for_time(struct archive_t* archive,
                                         int64_t clock_time,
+                                        AVRational time_base,
                                         struct archive_stream_t*** streams_out,
                                         int* num_streams_out);
 

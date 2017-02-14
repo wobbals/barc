@@ -29,7 +29,7 @@ int audio_mixer_get_samples(struct archive_t* archive,
 
     struct archive_stream_t** active_streams;
     int active_stream_count;
-    ret = archive_get_active_streams_for_time(archive, clock_time,
+    ret = archive_get_active_streams_for_time(archive, clock_time, time_base,
                                               &active_streams,
                                               &active_stream_count);
     printf("Will mix %d audio streams for ts %lld\n",

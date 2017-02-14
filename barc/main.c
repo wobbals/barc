@@ -92,7 +92,7 @@ static int tick_video(struct file_writer_t* file_writer,
     struct archive_stream_t** active_streams;
     int active_stream_count;
 
-    archive_get_active_streams_for_time(archive, clock_time,
+    archive_get_active_streams_for_time(archive, clock_time, clock_time_base,
                                         &active_streams,
                                         &active_stream_count);
 

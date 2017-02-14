@@ -173,7 +173,8 @@ int archive_populate_stream_coords(struct archive_t* archive,
     // Regenerate stream list every tick to allow on-the-fly layout changes
     std::vector<ArchiveStreamInfo> stream_info;
     for (struct archive_stream_t* stream : archive->streams) {
-        if (archive_stream_is_active_at_time(stream, clock_time) &&
+        if (archive_stream_is_active_at_time(stream, clock_time,
+                                             clock_time_base) &&
             archive_stream_has_video_for_time(stream, clock_time,
                                               clock_time_base))
         {
@@ -213,13 +214,14 @@ int64_t archive_get_finish_clock_time(struct archive_t* archive)
 
 int archive_get_active_streams_for_time(struct archive_t* archive,
                                         int64_t clock_time,
+                                        AVRational time_base,
                                         struct archive_stream_t*** streams_out,
                                         int* num_streams_out)
 {
     std::vector<struct archive_stream_t*> result;
     // find any streams that should present content on this tick
     for (struct archive_stream_t* stream : archive->streams) {
-        if (archive_stream_is_active_at_time(stream, clock_time)) {
+        if (archive_stream_is_active_at_time(stream, clock_time, time_base)) {
             result.push_back(stream);
         }
     }

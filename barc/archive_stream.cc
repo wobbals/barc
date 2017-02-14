@@ -24,6 +24,10 @@ static inline float pts_per_sample(float sample_rate, float num_samples,
 static void insert_silence(struct archive_stream_t* stream,
                            int64_t num_samples,
                            int64_t from_pts, int64_t to_pts);
+
+// we know this to be true from documentation, it's not discoverable :-(
+static const AVRational archive_manifest_timebase = { 1, 1000 };
+
 struct archive_stream_t {
     int64_t start_offset;
     int64_t stop_offset;
@@ -489,10 +493,13 @@ static inline float pts_per_sample(float sample_rate, float num_samples,
 #pragma mark - Getters & Setters
 
 int archive_stream_is_active_at_time(struct archive_stream_t* stream,
-                                     int64_t global_time)
+                                     int64_t global_time,
+                                     AVRational time_base)
 {
-    return (stream->start_offset <= global_time &&
-            global_time < stream->stop_offset);
+    int64_t local_time = av_rescale_q(global_time, time_base,
+                                      archive_manifest_timebase);
+    return (stream->start_offset <= local_time &&
+            local_time < stream->stop_offset);
 }
 
 int archive_stream_get_offset_x(struct archive_stream_t* stream) {
