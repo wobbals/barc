@@ -231,7 +231,7 @@ static void crunch_frame(uv_work_t* work) {
 
     job->output_frame = output_frame;
 
-    printf("Crunched job number %d\n", job->serial_number);
+    //printf("Crunched job number %d\n", job->serial_number);
 }
 
 static void frame_builder_worker(void* p) {

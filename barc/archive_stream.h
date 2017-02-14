@@ -39,7 +39,9 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
                                      int num_samples,
                                      enum AVSampleFormat format,
                                      int sample_rate,
-                                     int16_t** samples_out);
+                                     int16_t** samples_out,
+                                     int64_t clock_time,
+                                     AVRational time_base);
 
 int archive_stream_is_active_at_time(struct archive_stream_t* stream,
                                      int64_t global_time);

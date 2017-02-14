@@ -239,6 +239,8 @@ int main(int argc, char **argv)
     frame_builder_alloc(&frame_builder);
 
     AVRational global_time_base = {1, 1000};
+    AVRational audio_time_base = file_writer->audio_stream->time_base;
+    int64_t audio_clock;
     // todo: fix video_fps to coordinate with the file writer
     float out_video_fps = 30;
     archive_set_output_video_fps(archive, out_video_fps);
@@ -272,7 +274,9 @@ int main(int argc, char **argv)
 
         if (need_audio) {
             last_audio_time = global_clock;
-            tick_audio(file_writer, archive, global_clock, global_time_base);
+            audio_clock = av_rescale_q(global_clock, global_time_base,
+                                       audio_time_base);
+            tick_audio(file_writer, archive, audio_clock, audio_time_base);
         }
 
         if (need_video) {

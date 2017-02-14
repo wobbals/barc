@@ -19,10 +19,11 @@ extern "C" {
 static int ensure_audio_frames(struct archive_stream_t* stream);
 static inline int64_t samples_per_pts(int sample_rate, int64_t pts,
                                       AVRational time_base);
+static inline float pts_per_sample(float sample_rate, float num_samples,
+                                   AVRational time_base);
 static void insert_silence(struct archive_stream_t* stream,
                            int64_t num_samples,
                            int64_t from_pts, int64_t to_pts);
-
 struct archive_stream_t {
     int64_t start_offset;
     int64_t stop_offset;
@@ -39,6 +40,7 @@ struct archive_stream_t {
     std::deque<AVFrame*> audio_frame_fifo;
     int output_video_fps;
     AVAudioFifo* audio_sample_fifo;
+    int64_t audio_last_pts;
 
     const char* sz_name;
     const char* sz_class;
@@ -49,6 +51,8 @@ struct archive_stream_t {
     int render_width;
     int render_height;
 };
+
+#pragma mark - Container setup
 
 static int archive_open_codec(AVFormatContext* format_context,
                               enum AVMediaType media_type,
@@ -185,6 +189,8 @@ int archive_stream_free(struct archive_stream_t* stream)
     return 0;
 }
 
+#pragma mark - Video stream management
+
 /* Editorial: Splitting the input reader into two separate instances allows
  * us to seek through the source file for specific data without altering
  * progress of other stream tracks. The alternative is to seek once and keep
@@ -218,42 +224,6 @@ static int read_video_frame(struct archive_stream_t* stream)
                 smart_frame_t* smart_frame;
                 smart_frame_create(&smart_frame, frame);
                 stream->video_fifo.push(smart_frame);
-            }
-        } else {
-            av_frame_free(&frame);
-        }
-
-        av_packet_unref(&packet);
-    }
-    
-    return !got_frame;
-}
-
-static int read_audio_frame(struct archive_stream_t* stream)
-{
-    int ret, got_frame = 0;
-    AVPacket packet = { 0 };
-
-    /* pump packet reader until fifo is populated, or file ends */
-    while (stream->audio_frame_fifo.empty()) {
-        ret = av_read_frame(stream->audio_format_context, &packet);
-        if (ret < 0) {
-            return ret;
-        }
-
-        AVFrame* frame = av_frame_alloc();
-        if (packet.stream_index == stream->audio_stream_index) {
-            got_frame = 0;
-            ret = avcodec_decode_audio4(stream->audio_context, frame,
-                                        &got_frame, &packet);
-            if (ret < 0) {
-                av_log(NULL, AV_LOG_ERROR, "Error decoding audio: %s\n",
-                       av_err2str(ret));
-            }
-
-            if (got_frame) {
-                frame->pts = av_frame_get_best_effort_timestamp(frame);
-                stream->audio_frame_fifo.push_back(frame);
             }
         } else {
             av_frame_free(&frame);
@@ -351,22 +321,40 @@ static void insert_silence(struct archive_stream_t* stream,
     stream->audio_frame_fifo.push_front(silence);
 }
 
-static inline int64_t samples_per_pts(int sample_rate, int64_t pts,
-                                      AVRational time_base)
+static int read_audio_frame(struct archive_stream_t* stream)
 {
-    // (duration * time_base) * (sample_rate) == sample_count
-    // (20 / 1000) * 48000 == 960
-    return (float)((float)pts * (float)time_base.num) / (float)time_base.den * (float)sample_rate;
-    //return av_rescale_q(pts, time_base, { sample_rate, 1});
-}
+    int ret, got_frame = 0;
+    AVPacket packet = { 0 };
 
-static inline float pts_per_sample(float sample_rate, float num_samples,
-                                   AVRational time_base)
-{
-    // (duration * time_base) * (sample_rate) == sample_count
-    // (20 / 1000) * 48000 == 960
-    return
-    num_samples * ((float)time_base.den / (float)time_base.num) / sample_rate;
+    /* pump packet reader until fifo is populated, or file ends */
+    while (stream->audio_frame_fifo.empty()) {
+        ret = av_read_frame(stream->audio_format_context, &packet);
+        if (ret < 0) {
+            return ret;
+        }
+
+        AVFrame* frame = av_frame_alloc();
+        if (packet.stream_index == stream->audio_stream_index) {
+            got_frame = 0;
+            ret = avcodec_decode_audio4(stream->audio_context, frame,
+                                        &got_frame, &packet);
+            if (ret < 0) {
+                av_log(NULL, AV_LOG_ERROR, "Error decoding audio: %s\n",
+                       av_err2str(ret));
+            }
+
+            if (got_frame) {
+                frame->pts = av_frame_get_best_effort_timestamp(frame);
+                stream->audio_frame_fifo.push_back(frame);
+            }
+        } else {
+            av_frame_free(&frame);
+        }
+
+        av_packet_unref(&packet);
+    }
+    
+    return !got_frame;
 }
 
 // shortcut for frequent checks to the frame fifo
@@ -398,16 +386,18 @@ static int audio_frame_fifo_pop(struct archive_stream_t* stream) {
     stream->audio_format_context->streams[stream->audio_stream_index];
     AVFrame* new_frame = stream->audio_frame_fifo.front();
     // insert silence if we detect a lapse in audio continuity
-    if ((new_frame->pts - old_frame->pts) > old_frame->pkt_duration) {
-        int64_t num_samples =
-        samples_per_pts(stream->audio_context->sample_rate,
-                        new_frame->pts - old_frame->pts -
-                        old_frame->pkt_duration,
-                        audio_stream->time_base);
-        if (num_samples > 0) {
-            insert_silence(stream, num_samples, old_frame->pts, new_frame->pts);
-        }
-    }
+//    if ((new_frame->pts - old_frame->pts) > old_frame->pkt_duration) {
+//        int64_t num_samples =
+//        samples_per_pts(stream->audio_context->sample_rate,
+//                        new_frame->pts - old_frame->pts -
+//                        old_frame->pkt_duration,
+//                        audio_stream->time_base);
+//        if (num_samples > 0) {
+//            printf("data gap detected at %lld. generate %lld silent samples\n",
+//                   old_frame->pts, num_samples);
+//            insert_silence(stream, num_samples, old_frame->pts, new_frame->pts);
+//        }
+//    }
 
     av_frame_free(&old_frame);
 
@@ -424,8 +414,16 @@ static int get_more_audio_samples(struct archive_stream_t* stream) {
     frame = stream->audio_frame_fifo.front();
     // consume the frame completely
     if (frame) {
+        stream->audio_last_pts = frame->pts;
+//        int num_samples = frame->nb_samples;
+//        if (num_samples < samples_per_pts(48000, frame->pkt_duration, {1, 1000})) {
+//            printf("tilt\n");
+//        }
         ret = av_audio_fifo_write(stream->audio_sample_fifo,
                                   (void**)frame->data, frame->nb_samples);
+        assert(ret == frame->nb_samples);
+        printf("consume offset audio pts %lld %s\n",
+               stream->start_offset + frame->pts, stream->sz_name);
     }
     ret = audio_frame_fifo_pop(stream);
     return ret;
@@ -435,19 +433,24 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
                                      int num_samples,
                                      enum AVSampleFormat format,
                                      int sample_rate,
-                                     int16_t** samples_out)
+                                     int16_t** samples_out,
+                                     int64_t clock_time,
+                                     AVRational time_base)
 {
     int ret = 0;
-
+    AVStream* audio_stream =
+    stream->audio_format_context->streams[stream->audio_stream_index];
+    int64_t local_ts = av_rescale_q(clock_time, time_base, audio_stream->time_base);
     // TODO: This needs to be aware of the sample rate and format of the
     // receiver
     assert(48000 == sample_rate);
     assert(format == AV_SAMPLE_FMT_S16);
-
+    printf("audio fifo size before: %d\n", av_audio_fifo_size(stream->audio_sample_fifo));
     while (num_samples > av_audio_fifo_size(stream->audio_sample_fifo) && !ret)
     {
         ret = get_more_audio_samples(stream);
     }
+    printf("audio fifo size after: %d\n", av_audio_fifo_size(stream->audio_sample_fifo));
 
     if (ret) {
         printf("can't get more samples\n");
@@ -456,9 +459,34 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
 
     ret = av_audio_fifo_read(stream->audio_sample_fifo,
                              (void**)samples_out, num_samples);
+    assert(ret == num_samples);
+    printf("pop %d audio samples for local ts %lld %s\n", num_samples, local_ts, stream->sz_name);
+    printf("drift=%lld\n", local_ts - (stream->audio_last_pts + stream->start_offset));
+    printf("%f\n", pts_per_sample(48000, 960, {1, 1000}));
 
     return ret;
 }
+
+static inline int64_t samples_per_pts(int sample_rate, int64_t pts,
+                                      AVRational time_base)
+{
+    // (duration * time_base) * (sample_rate) == sample_count
+    // (20 / 1000) * 48000 == 960
+    return (float)((float)pts * (float)time_base.num) /
+    (float)time_base.den * (float)sample_rate;
+    //return av_rescale_q(pts, time_base, { sample_rate, 1});
+}
+
+static inline float pts_per_sample(float sample_rate, float num_samples,
+                            AVRational time_base)
+{
+    // (duration * time_base) * (sample_rate) == sample_count
+    // (20 / 1000) * 48000 == 960
+    return
+    num_samples * ((float)time_base.den / (float)time_base.num) / sample_rate;
+}
+
+#pragma mark - Getters & Setters
 
 int archive_stream_is_active_at_time(struct archive_stream_t* stream,
                                      int64_t global_time)
