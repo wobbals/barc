@@ -10,7 +10,8 @@ Build using CMake. In addition to cmake you will need:
 * ffmpeg/libav libraries (including, not limited to: libavcodec, libavfilter,
   etc.)
   * ffmpeg will need some form of H.264 encoder. x264 is a great chioce,
-    but comes with some licensing concerns under GPLv2.
+    but comes with some licensing concerns under GPLv2. OpenH264 should work,
+    but has not been tested.
   * ffmpeg also needs libopus to work with TokBox archives. The built in opus
     codec _will not do_.
 * libopus

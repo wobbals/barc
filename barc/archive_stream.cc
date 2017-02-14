@@ -390,18 +390,18 @@ static int audio_frame_fifo_pop(struct archive_stream_t* stream) {
     stream->audio_format_context->streams[stream->audio_stream_index];
     AVFrame* new_frame = stream->audio_frame_fifo.front();
     // insert silence if we detect a lapse in audio continuity
-//    if ((new_frame->pts - old_frame->pts) > old_frame->pkt_duration) {
-//        int64_t num_samples =
-//        samples_per_pts(stream->audio_context->sample_rate,
-//                        new_frame->pts - old_frame->pts -
-//                        old_frame->pkt_duration,
-//                        audio_stream->time_base);
-//        if (num_samples > 0) {
-//            printf("data gap detected at %lld. generate %lld silent samples\n",
-//                   old_frame->pts, num_samples);
-//            insert_silence(stream, num_samples, old_frame->pts, new_frame->pts);
-//        }
-//    }
+    if ((new_frame->pts - old_frame->pts) > old_frame->pkt_duration) {
+        int64_t num_samples =
+        samples_per_pts(stream->audio_context->sample_rate,
+                        new_frame->pts - old_frame->pts -
+                        old_frame->pkt_duration,
+                        audio_stream->time_base);
+        if (num_samples > 0) {
+            printf("data gap detected at %lld. generate %lld silent samples\n",
+                   old_frame->pts, num_samples);
+            insert_silence(stream, num_samples, old_frame->pts, new_frame->pts);
+        }
+    }
 
     av_frame_free(&old_frame);
 
@@ -419,10 +419,6 @@ static int get_more_audio_samples(struct archive_stream_t* stream) {
     // consume the frame completely
     if (frame) {
         stream->audio_last_pts = frame->pts;
-//        int num_samples = frame->nb_samples;
-//        if (num_samples < samples_per_pts(48000, frame->pkt_duration, {1, 1000})) {
-//            printf("tilt\n");
-//        }
         ret = av_audio_fifo_write(stream->audio_sample_fifo,
                                   (void**)frame->data, frame->nb_samples);
         assert(ret == frame->nb_samples);
@@ -444,12 +440,18 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
     int ret = 0;
     AVStream* audio_stream =
     stream->audio_format_context->streams[stream->audio_stream_index];
-    int64_t local_ts = av_rescale_q(clock_time, time_base, audio_stream->time_base);
+    int64_t local_ts = av_rescale_q(clock_time, time_base,
+                                    audio_stream->time_base);
+    int local_pts_interval = pts_per_sample(sample_rate, num_samples,
+                                            audio_stream->time_base);
     // TODO: This needs to be aware of the sample rate and format of the
     // receiver
     assert(48000 == sample_rate);
     assert(format == AV_SAMPLE_FMT_S16);
-    printf("audio fifo size before: %d\n", av_audio_fifo_size(stream->audio_sample_fifo));
+    printf("pop %d time units of audio samples (%d total) for local ts %lld\n",
+           local_pts_interval, num_samples, local_ts);
+    printf("audio fifo size before: %d\n",
+           av_audio_fifo_size(stream->audio_sample_fifo));
     while (num_samples > av_audio_fifo_size(stream->audio_sample_fifo) && !ret)
     {
         ret = get_more_audio_samples(stream);
@@ -464,9 +466,18 @@ int archive_stream_pop_audio_samples(struct archive_stream_t* stream,
     ret = av_audio_fifo_read(stream->audio_sample_fifo,
                              (void**)samples_out, num_samples);
     assert(ret == num_samples);
-    printf("pop %d audio samples for local ts %lld %s\n", num_samples, local_ts, stream->sz_name);
-    printf("drift=%lld\n", local_ts - (stream->audio_last_pts + stream->start_offset));
-    printf("%f\n", pts_per_sample(48000, 960, {1, 1000}));
+    printf("pop %d audio samples for local ts %lld %s\n",
+           num_samples, local_ts, stream->sz_name);
+    int clock_drift = (int)
+    (local_ts - (stream->audio_last_pts + stream->start_offset));
+    printf("audio clock drift=%d\n", clock_drift);
+    if (clock_drift > 1000) {
+        // global clock is ahead of the stream. truncate some data (better yet,
+        // squish some samples together
+    } else if (clock_drift < -1000) {
+        // stream is ahead of the global clock. introduce some silence or
+        // spread samples apart
+    }
 
     return ret;
 }

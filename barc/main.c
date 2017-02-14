@@ -242,17 +242,17 @@ int main(int argc, char **argv)
     AVRational audio_time_base = file_writer->audio_stream->time_base;
     int64_t audio_clock;
     // todo: fix video_fps to coordinate with the file writer
-    float out_video_fps = 30;
+    double out_video_fps = 30;
     archive_set_output_video_fps(archive, out_video_fps);
-    float global_clock = 0;
+    double global_clock = 0.;
     int64_t video_tick_time =
     global_time_base.den / out_video_fps / global_time_base.num;
-    float audio_tick_time =
-    (float)file_writer->audio_ctx_out->frame_size *
-    (float) global_time_base.den /
-    (float)file_writer->audio_ctx_out->sample_rate;
-    int64_t last_audio_time = 0;
-    int64_t last_video_time = 0;
+    double audio_tick_time =
+    (double)file_writer->audio_ctx_out->frame_size *
+    (double) global_time_base.den /
+    (double)file_writer->audio_ctx_out->sample_rate;
+    double last_audio_time = 0;
+    double last_video_time = 0;
     char need_video;
     char need_audio;
 
@@ -265,7 +265,7 @@ int main(int argc, char **argv)
 
         // skip this tick if there are no frames need rendering
         if (!need_audio && !need_video) {
-            global_clock++;
+            global_clock += 0.001;
             continue;
         }
 
@@ -285,7 +285,12 @@ int main(int argc, char **argv)
                        global_clock, global_time_base);
         }
 
-        global_clock++;
+        // floating point clock doesn't quite increment cleanly. blame it
+        // on the aac encoder that insists on such an unusual frame time as
+        // 1024 samples per frame. still, it would be better to calculate
+        // exactly when we need to wake up again, so:
+        // TODO: calculate exactly when we need to wake up again.
+        global_clock += 0.001;
     }
 end:
     //av_frame_free(&filt_frame);
