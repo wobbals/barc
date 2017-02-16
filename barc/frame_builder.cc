@@ -67,6 +67,7 @@ int frame_builder_alloc(struct frame_builder_t** frame_builder) {
     uv_free_cpu_info(cpu_infos, cpu_count);
     // or, don't. your mileage may vary. see what works for you.
     //setenv("UV_THREADPOOL_SIZE", str, 0);
+    //setenv("UV_THREADPOOL_SIZE", "1", 0);
     uv_loop_init(result->loop);
     uv_thread_create(&result->loop_thread, frame_builder_worker, result);
 
