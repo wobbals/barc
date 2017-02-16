@@ -4,18 +4,18 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-
-var routes = require('./routes/index');
-
 var app = express();
-
+var debug = require('debug')('barc:worker');
 var config = require('config');
 var kue = require('kue');
+
 if (config.get("debugMode")) {
   // optional: setup kue monitoring/debugging webapp
   debug("Kue admin listening on port 3001");
   kue.app.listen(3001);
 }
+
+var routes = require('./routes/index');
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));

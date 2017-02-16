@@ -34,3 +34,7 @@ curl -v \
 
 API is not yet implemented, but with `debugMode` enabled in the config, you can 
 visit `localhost:3001` to monitor job progress.
+
+## Fetching job results
+
+Also not implemented. What good is this webapp, then?
