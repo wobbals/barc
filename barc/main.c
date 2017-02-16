@@ -267,8 +267,9 @@ int main(int argc, char **argv)
     /* kick off the global clock and begin composing */
     while (archive_finish_time >= global_clock) {
 
-        printf("global_clock: %f need_audio:%d need_video:%d\n",
-               global_clock, need_track[0], need_track[1]);
+        printf("{\"progress\": {\"complete\": %lld, \"total\": %lld }}\n",
+               (int64_t)global_clock, archive_finish_time);
+        printf("need_audio:%d need_video:%d\n", need_track[0], need_track[1]);
 
         if (need_track[0]) {
             last_audio_time = global_clock;

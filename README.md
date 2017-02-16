@@ -104,10 +104,11 @@ options include:
 Using `horizontalPresentation` or `verticalPresentation`, you can specify an
 important video stream that should get more screen space on the composed output.
 Specify a `layoutClass` as an attribute of the stream in your archive manifest,
-and give it the string value `focus`. CSS classes can also be defined by the
-custom CSS input parameter, allowing you to create your own layouts. Please,
-if you have a layout class that you think should be a preset, raise an issue
-with the stylesheet!
+and give it the string value `focus`. CSS stylesheets and classes can also be
+defined by the custom CSS input parameter, allowing you to create your own
+layouts. 
+Please, if you have a layout class that you think should be a preset, raise an
+issue with the stylesheet!
 
 # TODO
 
