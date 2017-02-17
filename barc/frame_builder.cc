@@ -58,16 +58,16 @@ int frame_builder_alloc(struct frame_builder_t** frame_builder) {
     result->loop = (uv_loop_t*) malloc(sizeof(uv_loop_t));
     result->running = 1;
     result->finish_serial = 0;
-    // abuse the thread pool a bit
+    // shape the thread pool a bit
     uv_cpu_info_t* cpu_infos;
     int cpu_count;
     uv_cpu_info(&cpu_infos, &cpu_count);
+    cpu_count = fmax(1, cpu_count - 2);
     char str[4];
     sprintf(str, "%d", cpu_count);
     uv_free_cpu_info(cpu_infos, cpu_count);
-    // or, don't. your mileage may vary. see what works for you.
-    //setenv("UV_THREADPOOL_SIZE", str, 0);
-    //setenv("UV_THREADPOOL_SIZE", "1", 0);
+    // ...or, don't. your mileage may vary. see what works for you.
+    setenv("UV_THREADPOOL_SIZE", str, 0);
     uv_loop_init(result->loop);
     uv_thread_create(&result->loop_thread, frame_builder_worker, result);
 
