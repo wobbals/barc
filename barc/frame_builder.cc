@@ -19,6 +19,14 @@ extern "C" {
 #include <vector>
 #include <map>
 
+// Workaround C++ issue with ffmpeg macro
+#ifndef __clang__
+#undef av_err2str
+#define av_err2str(errnum) \
+av_make_error_string((char*)__builtin_alloca(AV_ERROR_MAX_STRING_SIZE), \
+AV_ERROR_MAX_STRING_SIZE, errnum)
+#endif
+
 static int job_counter;
 static void crunch_frame(uv_work_t* work);
 static void after_crunch_frame(uv_work_t* work, int status);

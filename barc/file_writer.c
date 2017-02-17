@@ -88,8 +88,9 @@ static int init_audio_filters(struct file_writer_t* file_writer,
     AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
     AVFilterInOut *outputs = avfilter_inout_alloc();
     AVFilterInOut *inputs  = avfilter_inout_alloc();
-    static const enum AVSampleFormat out_sample_fmts[] =
-    { out_audio_format, -1 };
+    static enum AVSampleFormat out_sample_fmts[2];
+    out_sample_fmts[0] = out_audio_format;
+    out_sample_fmts[1] = -1;
     static const int64_t out_channel_layouts[] = { AV_CH_LAYOUT_MONO, -1 };
     static const int out_sample_rates[] = { 48000, -1 };
     const AVFilterLink *outlink;
