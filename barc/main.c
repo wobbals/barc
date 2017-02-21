@@ -23,8 +23,9 @@
 #include "frame_builder.h"
 
 static int tick_audio(struct file_writer_t* file_writer,
-                      struct archive_t* archive, int64_t global_clock,
-                      AVRational global_time_base)
+                      struct archive_t* archive, int64_t clock_time,
+                      AVRational clock_time_base,
+                      int64_t clock_begin_offset, char skip_frame)
 {
     int ret;
 
@@ -33,10 +34,16 @@ static int tick_audio(struct file_writer_t* file_writer,
     output_frame->format = file_writer->audio_ctx_out->sample_fmt;
     output_frame->channel_layout = file_writer->audio_ctx_out->channel_layout;
     output_frame->nb_samples = file_writer->audio_ctx_out->frame_size;
-    output_frame->pts = av_rescale_q(global_clock,
-                                     global_time_base,
+    // output pts is offset back to zero for late starts (see -b option)
+    output_frame->pts = av_rescale_q(clock_time - clock_begin_offset,
+                                     clock_time_base,
                                      file_writer->audio_ctx_out->time_base);
     output_frame->sample_rate = file_writer->audio_ctx_out->sample_rate;
+    // adjust to local time in audio scale units, without begin offset
+    int64_t local_source_ts =
+    av_rescale_q(clock_time,
+                 clock_time_base,
+                 file_writer->audio_ctx_out->time_base);
 
     ret = av_frame_get_buffer(output_frame, 1);
     if (ret) {
@@ -51,18 +58,22 @@ static int tick_audio(struct file_writer_t* file_writer,
                ((enum AVSampleFormat)output_frame->format));
     }
 
-    // mix down samples
-    audio_mixer_get_samples(archive, global_clock,
-                            global_time_base, output_frame);
+    // mix down samples using original time
+    audio_mixer_get_samples(archive,
+                            local_source_ts,
+                            file_writer->audio_ctx_out->time_base,
+                            output_frame);
 
-    // send it to the audio filter graph
-    file_writer_push_audio_frame(file_writer, output_frame);
-
+    if (!skip_frame) {
+        // send it to the audio filter graph
+        file_writer_push_audio_frame(file_writer, output_frame);
+    }
     return ret;
 }
 
 struct frame_builder_callback_data_t {
     int64_t clock_time;
+    int64_t clock_begin_offset;
     struct file_writer_t* file_writer;
 };
 
@@ -70,9 +81,10 @@ static void frame_builder_cb(AVFrame* frame, void *p) {
     struct frame_builder_callback_data_t* data =
     ((struct frame_builder_callback_data_t*)p);
     int64_t clock_time = data->clock_time;
+    int64_t clock_begin_offset = data->clock_begin_offset;
     struct file_writer_t* file_writer = data->file_writer;
 
-    frame->pts = clock_time;
+    frame->pts = clock_time - clock_begin_offset;
     int ret = file_writer_push_video_frame(file_writer, frame);
     if (ret) {
         printf("Unable to push video frame %lld\n", frame->pts);
@@ -83,7 +95,8 @@ static void frame_builder_cb(AVFrame* frame, void *p) {
 static int tick_video(struct file_writer_t* file_writer,
                       struct frame_builder_t* frame_builder,
                       struct archive_t* archive, int64_t clock_time,
-                      AVRational clock_time_base)
+                      AVRational clock_time_base,
+                      int64_t clock_begin_offset, char skip_frame)
 {
     int ret = -1;
 
@@ -95,16 +108,21 @@ static int tick_video(struct file_writer_t* file_writer,
     archive_get_active_streams_for_time(archive, clock_time, clock_time_base,
                                         &active_streams,
                                         &active_stream_count);
-
-    struct frame_builder_callback_data_t* callback_data =
-    (struct frame_builder_callback_data_t*)
-    malloc(sizeof(struct frame_builder_callback_data_t));
-    callback_data->clock_time = clock_time;
-    callback_data->file_writer = file_writer;
-    frame_builder_begin_frame(frame_builder,
-                              file_writer->out_width, file_writer->out_height,
-                              (enum AVPixelFormat)AV_PIX_FMT_YUV420P,
-                              callback_data);
+    // if we're skipping the frame, no need for a magic frame. just pull the
+    // frames out of the video graph and do nothing.
+    if (!skip_frame) {
+        struct frame_builder_callback_data_t* callback_data =
+        (struct frame_builder_callback_data_t*)
+        malloc(sizeof(struct frame_builder_callback_data_t));
+        callback_data->clock_time = clock_time;
+        callback_data->clock_begin_offset = clock_begin_offset;
+        callback_data->file_writer = file_writer;
+        frame_builder_begin_frame(frame_builder,
+                                  file_writer->out_width,
+                                  file_writer->out_height,
+                                  (enum AVPixelFormat)AV_PIX_FMT_YUV420P,
+                                  callback_data);
+    }
 
     // append source frames to magic frame
     for (int i = 0; i < active_stream_count; i++) {
@@ -128,12 +146,14 @@ static int tick_video(struct file_writer_t* file_writer,
         subframe.y_offset = archive_stream_get_offset_y(stream);
         subframe.render_width = archive_stream_get_render_width(stream);
         subframe.render_height = archive_stream_get_render_height(stream);
-        
-        frame_builder_add_subframe(frame_builder, &subframe);
 
+        if (!skip_frame) {
+            frame_builder_add_subframe(frame_builder, &subframe);
+        }
     }
-
-    frame_builder_finish_frame(frame_builder, frame_builder_cb);
+    if (!skip_frame) {
+        frame_builder_finish_frame(frame_builder, frame_builder_cb);
+    }
     return ret;
 }
 
@@ -150,9 +170,11 @@ int main(int argc, char **argv)
     char* css_custom = NULL;
     int out_width = 0;
     int out_height = 0;
+    int64_t begin_offset = -1;
+    int64_t end_offset = -1;
     int c;
 
-    while ((c = getopt (argc, argv, "i:o:w:h:p:c:")) != -1) {
+    while ((c = getopt (argc, argv, "i:o:w:h:p:c:b:e:")) != -1) {
         switch (c)
         {
             case 'i':
@@ -166,6 +188,12 @@ int main(int argc, char **argv)
                 break;
             case 'h':
                 out_height = atoi(optarg);
+                break;
+            case 'b':
+                begin_offset = atoi(optarg);
+                break;
+            case 'e':
+                end_offset = atoi(optarg);
                 break;
             case 'p':
                 css_preset = optarg;
@@ -239,8 +267,6 @@ int main(int argc, char **argv)
     frame_builder_alloc(&frame_builder);
 
     AVRational global_time_base = {1, 1000};
-    AVRational audio_time_base = file_writer->audio_stream->time_base;
-    int64_t audio_clock;
     // todo: fix video_fps to coordinate with the file writer
     double out_video_fps = 30;
     archive_set_output_video_fps(archive, out_video_fps);
@@ -251,8 +277,6 @@ int main(int argc, char **argv)
     (double)file_writer->audio_ctx_out->frame_size *
     (double) global_time_base.den /
     (double)file_writer->audio_ctx_out->sample_rate;
-    double last_audio_time = 0;
-    double last_video_time = 0;
     double next_clock;
 
     int64_t archive_finish_time = archive_get_finish_clock_time(archive);
@@ -263,28 +287,46 @@ int main(int argc, char **argv)
     char need_track[2];
     need_track[0] = 1;
     need_track[1] = 1;
+    char skip_frame;
+
+    if (begin_offset < 0) {
+        begin_offset = 0;
+    } else {
+        begin_offset *= global_time_base.den;
+        begin_offset /= global_time_base.num;
+    }
+
+    // truncate archive_finish_time if an end_offset has been set and it's less
+    // than the finish time declared in manifest
+    if (end_offset > 0) {
+        end_offset *= global_time_base.den;
+        end_offset /= global_time_base.num;
+        archive_finish_time = fmin(archive_finish_time, end_offset);
+    }
 
     /* kick off the global clock and begin composing */
     while (archive_finish_time >= global_clock) {
+        skip_frame = (global_clock < begin_offset);
 
         printf("{\"progress\": {\"complete\": %lld, \"total\": %lld }}\n",
                (int64_t)global_clock, archive_finish_time);
-        printf("need_audio:%d need_video:%d\n", need_track[0], need_track[1]);
+        if (skip_frame) {
+            printf("skipping frame\n");
+        } else {
+            printf("need_audio:%d need_video:%d\n", need_track[0], need_track[1]);
+        }
 
+        // process audio and video tracks, as needed
         if (need_track[0]) {
-            last_audio_time = global_clock;
-            audio_clock = av_rescale_q(global_clock, global_time_base,
-                                       audio_time_base);
-            tick_audio(file_writer, archive, audio_clock, audio_time_base);
-
+            tick_audio(file_writer, archive, global_clock, global_time_base,
+                       begin_offset, skip_frame);
             next_clock_times[0] = global_clock + audio_tick_time;
         }
 
         if (need_track[1]) {
-            last_video_time = global_clock;
             tick_video(file_writer, frame_builder, archive,
-                       global_clock, global_time_base);
-
+                       global_clock, global_time_base,
+                       begin_offset, skip_frame);
             next_clock_times[1] = global_clock + video_tick_time;
         }
 
@@ -311,8 +353,6 @@ int main(int argc, char **argv)
         global_clock = next_clock;
     }
 end:
-    //av_frame_free(&filt_frame);
-    //archive_stream_free(&archive_streams[0]);
     if (ret < 0 && ret != AVERROR_EOF) {
         fprintf(stderr, "Error occurred: %s\n", av_err2str(ret));
         //exit(1);

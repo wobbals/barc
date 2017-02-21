@@ -205,9 +205,6 @@ static void after_crunch_frame(uv_work_t* work, int status) {
 
 static void crunch_frame(uv_work_t* work) {
     struct frame_job_t* job = (struct frame_job_t*)work->data;
-    if (244 == job->serial_number) {
-        printf("trap");
-    }
     int ret;
     MagickWand* output_wand;
     magic_frame_start(&output_wand, job->width, job->height);
@@ -240,7 +237,8 @@ static void crunch_frame(uv_work_t* work) {
 
     job->output_frame = output_frame;
 
-    //printf("Crunched job number %d\n", job->serial_number);
+//    printf("Crunched %lu frames for frame builder job number %d\n",
+//           job->subframes.size(), job->serial_number);
 }
 
 static void frame_builder_worker(void* p) {

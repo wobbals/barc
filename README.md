@@ -63,6 +63,8 @@ options include:
 * `-h height` - output container height (default 480)
 * `-c css` - custom css for output layout. Option is ignored if `-p custom` is
   not also passed.
+* `-b beginOffset` - offset start time in seconds
+* `-e endOffset` - offset stop time in seconds
   
 ## Input ZIP / directory
 

@@ -70,6 +70,18 @@ int open_manifest_item(struct archive_stream_t** stream, json_t* item) {
         stream_class = json_string_value(node);
     }
 
+    const char* video_type = "";
+    node = json_object_get(item, "videoType");
+    if (json_is_string(node)) {
+        video_type = json_string_value(node);
+    }
+    // hack: automatically set stream class 'focus' if
+    // 1) undefined in manifest AND
+    // 2) videoType is 'screen' (eg. probably a screenshare)
+    if (!strcmp(video_type, "screen") && !strlen(stream_class)) {
+        stream_class = "focus";
+    }
+
     ret = archive_stream_open(stream, filename_str, start, stop,
                               stream_id, stream_class);
     printf("parsed archive stream %s\n", filename_str);
