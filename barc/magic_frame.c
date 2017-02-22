@@ -49,13 +49,13 @@ int magic_frame_add(MagickWand* output_wand,
                                  input_frame->height * input_frame->width);
 
     // Convert colorspace (AVFrame YUV -> pixelbuf RGB)
-    yuv420_rgb24_sseu(input_frame->width, input_frame->height,
-                      input_frame->data[0],
-                      input_frame->data[1],
-                      input_frame->data[2],
-                      input_frame->linesize[0], input_frame->linesize[1],
-                      rgb_buf_in, input_frame->width * 3,
-                      YCBCR_709);
+    yuv420_rgb24_std(input_frame->width, input_frame->height,
+                     input_frame->data[0],
+                     input_frame->data[1],
+                     input_frame->data[2],
+                     input_frame->linesize[0], input_frame->linesize[1],
+                     rgb_buf_in, input_frame->width * 3,
+                     YCBCR_709);
 
     // background on image color for scale/crop debugging
     PixelWand* background = NewPixelWand();
@@ -77,6 +77,7 @@ int magic_frame_add(MagickWand* output_wand,
     float internal_x_offset = 0;
     float internal_y_offset = 0;
 
+    // TODO: make this switchable
 #define FIT 1 // 0 for fill
     if (FIT) {
         scale_factor = fmin(w_factor, h_factor);
@@ -92,9 +93,9 @@ int magic_frame_add(MagickWand* output_wand,
 
     MagickSetImageBackgroundColor(input_wand, background);
     MagickResizeImage(input_wand, scaled_width, scaled_height, CubicFilter);
+    //MagickVignetteImage(input_wand, 0, 0, 0, 0);
     MagickExtentImage(input_wand, output_width, output_height,
                       internal_x_offset, internal_y_offset);
-
 
     if (status == MagickFalse)
         ThrowWandException(input_wand);
@@ -109,11 +110,18 @@ int magic_frame_add(MagickWand* output_wand,
     return 0;
 }
 
-int magic_frame_finish(MagickWand* output_wand, AVFrame* output_frame)
+int magic_frame_finish(MagickWand* output_wand, AVFrame* output_frame,
+                       int serial_number)
 {
     size_t width = MagickGetImageWidth(output_wand);
     size_t height = MagickGetImageHeight(output_wand);
     uint8_t* rgb_buf_out = malloc(RGB_BYTES_PER_PIXEL * width * height);
+    memset(rgb_buf_out, 50, (RGB_BYTES_PER_PIXEL * width * height));
+
+    // debug individual frames
+//    char buf[32];
+//    sprintf(buf, "test-%d.png", serial_number);
+//    MagickWriteImage(output_wand, buf);
 
     // push modified wand back to rgb buffer
     MagickExportImagePixels(output_wand, 0, 0,
@@ -122,10 +130,13 @@ int magic_frame_finish(MagickWand* output_wand, AVFrame* output_frame)
                             "RGB", CharPixel, rgb_buf_out);
 
     // send contrast_wand off to the frame buffer
-    rgb24_yuv420_sseu(output_frame->width, output_frame->height,
+    rgb24_yuv420_std(output_frame->width, output_frame->height,
                       rgb_buf_out, output_frame->width * RGB_BYTES_PER_PIXEL,
-                      output_frame->data[0], output_frame->data[1], output_frame->data[2],
-                      output_frame->linesize[0], output_frame->linesize[1], YCBCR_709);
+                      output_frame->data[0],
+                      output_frame->data[1],
+                      output_frame->data[2],
+                      output_frame->linesize[0],
+                      output_frame->linesize[1], YCBCR_709);
 
     free(rgb_buf_out);
     DestroyMagickWand(output_wand);

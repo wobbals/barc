@@ -22,6 +22,7 @@ int magic_frame_add(MagickWand* output_wand,
                     size_t y_offset,
                     size_t output_width,
                     size_t output_height);
-int magic_frame_finish(MagickWand* wand_out, AVFrame* frame_out);
+int magic_frame_finish(MagickWand* wand_out, AVFrame* frame_out,
+                       int serial_number);
 
 #endif /* magic_frame_h */

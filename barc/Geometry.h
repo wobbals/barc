@@ -64,7 +64,29 @@ left: 20%;
 height: 100%;
 width: 40%;
 })";
-    // This CSS only supports up to 3x3 streams. This should be synced with the configuration file in Anvil in the future.
+
+const std::string kSquareTopPresentation =
+R"(stream {
+float:left;
+left: 0px;
+width: 33%;
+height: 20%;
+padding: 0px;
+z-index: 1;
+}
+stream.focus {
+position: absolute;
+padding: 0px;
+bottom: 0;
+right: 0;
+margin: 0px;
+left: 0%;
+height: 100%;
+width: 100%;
+z-index: 0;
+})";
+
+// This CSS only supports up to 3x3 streams. This should be synced with the configuration file in Anvil in the future.
     const std::string kBestfitCss =
     R"(stream {
     float: left;

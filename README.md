@@ -117,4 +117,6 @@ issue with the stylesheet!
 * Audio resampling and filtering to allow ambiguous input/output formats
 * audio-only overlay / indicator
 * Dynamic class changes
-* Dynamic CSS changes
+* Dynamic stylesheet changes
+* Scale mode switching
+* image effect chains (ex. vignette)

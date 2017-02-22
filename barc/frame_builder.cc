@@ -233,7 +233,7 @@ static void crunch_frame(uv_work_t* work) {
                         subframe->render_height);
     }
 
-    ret = magic_frame_finish(output_wand, output_frame);
+    ret = magic_frame_finish(output_wand, output_frame, job->serial_number);
 
     job->output_frame = output_frame;
 
