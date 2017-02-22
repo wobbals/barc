@@ -33,6 +33,7 @@ int magic_frame_start(MagickWand** output_wand,
     PixelWand* background = NewPixelWand();
     // set background for layout debugging
     //PixelSetGreen(background, 1.0);
+    //PixelSetColor(background, "white");
     MagickNewImage(*output_wand, out_width, out_height, background);
     DestroyPixelWand(background);
     return 0;
@@ -43,7 +44,8 @@ int magic_frame_add(MagickWand* output_wand,
                     size_t x_offset,
                     size_t y_offset,
                     size_t output_width,
-                    size_t output_height)
+                    size_t output_height,
+                    char scale_to_fit)
 {
     uint8_t* rgb_buf_in = malloc(RGB_BYTES_PER_PIXEL *
                                  input_frame->height * input_frame->width);
@@ -53,13 +55,18 @@ int magic_frame_add(MagickWand* output_wand,
                      input_frame->data[0],
                      input_frame->data[1],
                      input_frame->data[2],
-                     input_frame->linesize[0], input_frame->linesize[1],
-                     rgb_buf_in, input_frame->width * 3,
+                     input_frame->linesize[0],
+                     input_frame->linesize[1],
+                     rgb_buf_in,
+                     input_frame->width * RGB_BYTES_PER_PIXEL,
                      YCBCR_709);
 
     // background on image color for scale/crop debugging
     PixelWand* background = NewPixelWand();
-    //PixelSetRed(background, 1.0);
+    // change the color to something with an active alpha channel if you need
+    // to see what's happening with the image processor
+    //PixelSetColor(background, "none");
+    PixelSetColor(background, "white");
 
     MagickWand* input_wand = NewMagickWand();
 
@@ -77,9 +84,7 @@ int magic_frame_add(MagickWand* output_wand,
     float internal_x_offset = 0;
     float internal_y_offset = 0;
 
-    // TODO: make this switchable
-#define FIT 1 // 0 for fill
-    if (FIT) {
+    if (scale_to_fit) {
         scale_factor = fmin(w_factor, h_factor);
     } else {
         scale_factor = fmax(w_factor, h_factor);
@@ -93,9 +98,10 @@ int magic_frame_add(MagickWand* output_wand,
 
     MagickSetImageBackgroundColor(input_wand, background);
     MagickResizeImage(input_wand, scaled_width, scaled_height, CubicFilter);
-    //MagickVignetteImage(input_wand, 0, 0, 0, 0);
     MagickExtentImage(input_wand, output_width, output_height,
                       internal_x_offset, internal_y_offset);
+    // Set a transparent background color if you enable vignette (use "none")
+    //MagickVignetteImage(input_wand, 0, 0, 0, 0);
 
     if (status == MagickFalse)
         ThrowWandException(input_wand);
@@ -113,15 +119,15 @@ int magic_frame_add(MagickWand* output_wand,
 int magic_frame_finish(MagickWand* output_wand, AVFrame* output_frame,
                        int serial_number)
 {
-    size_t width = MagickGetImageWidth(output_wand);
-    size_t height = MagickGetImageHeight(output_wand);
-    uint8_t* rgb_buf_out = malloc(RGB_BYTES_PER_PIXEL * width * height);
-    memset(rgb_buf_out, 50, (RGB_BYTES_PER_PIXEL * width * height));
-
-    // debug individual frames
+//    // debug individual frames
 //    char buf[32];
 //    sprintf(buf, "test-%d.png", serial_number);
 //    MagickWriteImage(output_wand, buf);
+//    exit(1);
+
+    size_t width = MagickGetImageWidth(output_wand);
+    size_t height = MagickGetImageHeight(output_wand);
+    uint8_t* rgb_buf_out = malloc(RGB_BYTES_PER_PIXEL * width * height);
 
     // push modified wand back to rgb buffer
     MagickExportImagePixels(output_wand, 0, 0,

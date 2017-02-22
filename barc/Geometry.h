@@ -69,9 +69,9 @@ const std::string kSquareTopPresentation =
 R"(stream {
 float:left;
 left: 0px;
-width: 33%;
+width: 32.333%;
 height: 20%;
-padding: 0px;
+padding: 0.5%;
 z-index: 1;
 }
 stream.focus {

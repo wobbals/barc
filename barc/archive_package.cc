@@ -90,7 +90,8 @@ int open_manifest_item(struct archive_stream_t** stream, json_t* item) {
 
 int archive_open(struct archive_t** archive_out, int width, int height,
                  const char* path,
-                 const char* css_preset, const char* css_custom)
+                 const char* css_preset, const char* css_custom,
+                 const char* manifest_supplemental_path)
 {
     int ret;
     glob_t globbuf;
@@ -104,7 +105,7 @@ int archive_open(struct archive_t** archive_out, int width, int height,
     if (!globbuf.gl_pathc) {
         printf("no json manifest found at %s\n", path);
     }
-    // use the first one we find
+    // use the first json file we find inside the archive zip (hopefully only)
     const char* manifest_path = globbuf.gl_pathv[0];
     json_t *manifest;
     json_error_t error;

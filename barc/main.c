@@ -146,7 +146,9 @@ static int tick_video(struct file_writer_t* file_writer,
         subframe.y_offset = archive_stream_get_offset_y(stream);
         subframe.render_width = archive_stream_get_render_width(stream);
         subframe.render_height = archive_stream_get_render_height(stream);
-
+        // TODO: configurable from the manifest
+        subframe.scale_to_fit = 0;
+        
         if (!skip_frame) {
             frame_builder_add_subframe(frame_builder, &subframe);
         }
@@ -168,13 +170,14 @@ int main(int argc, char **argv)
     char* output_path = NULL;
     char* css_preset = NULL;
     char* css_custom = NULL;
+    char* manifest_supplemental = NULL;
     int out_width = 0;
     int out_height = 0;
     int64_t begin_offset = -1;
     int64_t end_offset = -1;
     int c;
 
-    while ((c = getopt (argc, argv, "i:o:w:h:p:c:b:e:")) != -1) {
+    while ((c = getopt (argc, argv, "i:o:w:h:p:c:b:e:s:")) != -1) {
         switch (c)
         {
             case 'i':
@@ -182,6 +185,9 @@ int main(int argc, char **argv)
                 break;
             case 'o':
                 output_path = optarg;
+                break;
+            case 's':
+                manifest_supplemental = optarg;
                 break;
             case 'w':
                 out_width = atoi(optarg);
@@ -214,6 +220,7 @@ int main(int argc, char **argv)
         }
     }
 
+    // some defaults for debugging. don't use.
     if (!input_path) {
         input_path = "/Users/charley/src/barc/sample/audio_sync.zip";
     }
@@ -257,7 +264,7 @@ int main(int argc, char **argv)
 
     struct archive_t* archive;
     archive_open(&archive, out_width, out_height, input_path,
-                 css_preset, css_custom);
+                 css_preset, css_custom, manifest_supplemental);
 
     struct file_writer_t* file_writer;
     file_writer_alloc(&file_writer);
@@ -306,6 +313,7 @@ int main(int argc, char **argv)
 
     /* kick off the global clock and begin composing */
     while (archive_finish_time >= global_clock) {
+        // TODO: not this. add seek support to audio mixer
         skip_frame = (global_clock < begin_offset);
 
         printf("{\"progress\": {\"complete\": %lld, \"total\": %lld }}\n",

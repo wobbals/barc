@@ -21,6 +21,7 @@ struct frame_builder_subframe_t {
     int y_offset;
     int render_width;
     int render_height;
+    char scale_to_fit; // 0 to fill, 1 to fit
 };
 
 typedef void (*frame_builder_cb_t)(AVFrame* frame, void *p);
