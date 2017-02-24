@@ -13,6 +13,7 @@
 
 #include <libavutil/frame.h>
 #include <MagickWand/MagickWand.h>
+#include "object_fit.h"
 
 int magic_frame_start(MagickWand** dest_wand,
                       size_t width, size_t height);
@@ -22,7 +23,7 @@ int magic_frame_add(MagickWand* output_wand,
                     size_t y_offset,
                     size_t output_width,
                     size_t output_height,
-                    char scale_to_fit);
+                    enum object_fit object_fit);
 int magic_frame_finish(MagickWand* wand_out, AVFrame* frame_out,
                        int serial_number);
 

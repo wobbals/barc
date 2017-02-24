@@ -207,6 +207,8 @@ int archive_populate_stream_coords(struct archive_t* archive,
                 archive_stream_set_offset_y(stream, position.y);
                 archive_stream_set_render_width(stream, position.width);
                 archive_stream_set_render_height(stream, position.height);
+                archive_stream_set_object_fit(stream,
+                                              (enum object_fit)position.fit);
             }
         }
     }

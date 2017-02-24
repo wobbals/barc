@@ -231,7 +231,7 @@ static void crunch_frame(uv_work_t* work) {
                         subframe->y_offset,
                         subframe->render_width,
                         subframe->render_height,
-                        subframe->scale_to_fit);
+                        subframe->object_fit);
     }
 
     ret = magic_frame_finish(output_wand, output_frame, job->serial_number);

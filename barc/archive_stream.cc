@@ -62,6 +62,7 @@ struct archive_stream_t {
     int y_offset;
     int render_width;
     int render_height;
+    enum object_fit object_fit;
 };
 
 #pragma mark - Container setup
@@ -541,6 +542,10 @@ int archive_stream_get_render_width(struct archive_stream_t* stream) {
 int archive_stream_get_render_height(struct archive_stream_t* stream) {
     return stream->render_height;
 }
+enum object_fit archive_stream_get_object_fit(struct archive_stream_t* stream) {
+    return stream->object_fit;
+}
+
 
 void archive_stream_set_offset_x(struct archive_stream_t* stream,
                                  int x_offset)
@@ -564,6 +569,12 @@ void archive_stream_set_render_height(struct archive_stream_t* stream,
                                       int height)
 {
     stream->render_height = height;
+}
+
+void archive_stream_set_object_fit(struct archive_stream_t* stream,
+                                   enum object_fit object_fit)
+{
+    stream->object_fit = object_fit;
 }
 
 int64_t archive_stream_get_stop_offset(struct archive_stream_t* stream)

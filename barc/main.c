@@ -147,7 +147,7 @@ static int tick_video(struct file_writer_t* file_writer,
         subframe.render_width = archive_stream_get_render_width(stream);
         subframe.render_height = archive_stream_get_render_height(stream);
         // TODO: configurable from the manifest
-        subframe.scale_to_fit = 0;
+        subframe.object_fit = archive_stream_get_object_fit(stream);
         
         if (!skip_frame) {
             frame_builder_add_subframe(frame_builder, &subframe);

@@ -45,7 +45,7 @@ int magic_frame_add(MagickWand* output_wand,
                     size_t y_offset,
                     size_t output_width,
                     size_t output_height,
-                    char scale_to_fit)
+                    enum object_fit object_fit)
 {
     uint8_t* rgb_buf_in = malloc(RGB_BYTES_PER_PIXEL *
                                  input_frame->height * input_frame->width);
@@ -66,7 +66,7 @@ int magic_frame_add(MagickWand* output_wand,
     // change the color to something with an active alpha channel if you need
     // to see what's happening with the image processor
     //PixelSetColor(background, "none");
-    PixelSetColor(background, "white");
+    //PixelSetColor(background, "white");
 
     MagickWand* input_wand = NewMagickWand();
 
@@ -83,23 +83,44 @@ int magic_frame_add(MagickWand* output_wand,
     float scale_factor = 1;
     float internal_x_offset = 0;
     float internal_y_offset = 0;
+    char rescale_dimensions = 0;
 
-    if (scale_to_fit) {
+    // see https://developer.mozilla.org/en-US/docs/Web/CSS/object-fit
+    if (object_fit_fill == object_fit) {
+        // don't preserve aspect ratio.
+        rescale_dimensions = 0;
+    } else if (object_fit_scale_down == object_fit ||
+               object_fit_contain == object_fit)
+    {
+        // scale to fit all source pixels inside container,
+        // preserving aspect ratio
         scale_factor = fmin(w_factor, h_factor);
+        rescale_dimensions = 1;
     } else {
+        // fill the container completely, preserving aspect ratio
         scale_factor = fmax(w_factor, h_factor);
+        rescale_dimensions = 1;
     }
 
-    float scaled_width = input_frame->width * scale_factor;
-    float scaled_height = input_frame->height * scale_factor;
+    float scaled_width = output_width;
+    float scaled_height = output_height;
 
-    internal_y_offset = (scaled_height - output_height) / 2;
-    internal_x_offset = (scaled_width - output_width) / 2;
+    if (rescale_dimensions) {
+        scaled_width = input_frame->width * scale_factor;
+        scaled_height = input_frame->height * scale_factor;
+
+        internal_y_offset = (scaled_height - output_height) / 2;
+        internal_x_offset = (scaled_width - output_width) / 2;
+    }
 
     MagickSetImageBackgroundColor(input_wand, background);
     MagickResizeImage(input_wand, scaled_width, scaled_height, CubicFilter);
-    MagickExtentImage(input_wand, output_width, output_height,
-                      internal_x_offset, internal_y_offset);
+    // TODO: we should use extent without resizing for for object-fill: none.
+    if (rescale_dimensions) {
+        MagickExtentImage(input_wand, output_width, output_height,
+                          internal_x_offset, internal_y_offset);
+    }
+
     // Set a transparent background color if you enable vignette (use "none")
     //MagickVignetteImage(input_wand, 0, 0, 0, 0);
 

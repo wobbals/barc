@@ -21,13 +21,8 @@ class CssLayoutEngine;
 // Some code in this file follows litehtml style to inherit classes and use helpers inside the library
 #define object_fit_strings  _t("contain;cover;fill;none;scale-down")
 
-enum object_fit {
-    object_fit_contain = 0,
-    object_fit_cover = 1,
-    object_fit_fill = 2,
-    object_fit_none = 3,
-    object_fit_scale_down = 4
-};
+#include "object_fit.h"
+
 namespace Layout {
     const std::string kHorizontalPresentation =
     R"(stream {
