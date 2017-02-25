@@ -2,8 +2,8 @@
   "job_defaults": {
     "width": 640,
     "height": 480,
-    "ttl": 5000
-  }, 
+    "ttl": 30000
+  },
   "job_limits": {
     "max_width": 1920,
     "max_height": 1080,
@@ -13,5 +13,6 @@
   "css_presets": ["bestFit", "horizontalPresentation", "verticalPresentation"],
   "redis_url": "localhost:6379",
   "barc_path": "/Users/charley/src/barc/build/barc",
-  "debugMode": true
+  "debugMode": true,
+  "secret_token_length": 32
 }
