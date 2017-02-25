@@ -4,5 +4,6 @@
   "s3_bucket":"",
   "s3_region":"",
   "s3_prefix":"",
-  "secret_token_salt":""
+  "secret_token_salt":"",
+  "barc_path": ""
 }

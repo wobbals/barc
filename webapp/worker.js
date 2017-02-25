@@ -103,7 +103,12 @@ var processArchive = function(job, done, archiveLocalPath) {
       try {
         var parsed = JSON.parse(line);
         if (parsed.progress) {
-          job.progress(parsed.progress.complete, parsed.progress.total);
+          // update job progress to keep from timing out
+          // step 2: this phase should stay between 33% and 66%
+          var normalizedComplete = 
+          parsed.progress.complete + parsed.progress.total;
+          var normalizedTotal = parsed.progress.total * 3;
+          job.progress(normalizedComplete, normalizedTotal);
         }
       } catch (e) {
         // just a line we can't parse. no biggie. 
@@ -138,7 +143,7 @@ var processArchive = function(job, done, archiveLocalPath) {
     });
     // clean up the mess we made during normal use
     fs.unlinkSync(logpath);
-    if (!config.get("debugMode")) {
+    if (!config.get("clean_artifacts")) {
       // probably also good to clean up source archive if we're not debugging
       fs.unlinkSync(archiveLocalPath);
     }
@@ -172,7 +177,7 @@ var uploadLogs = function(job, logpath) {
   });
   upload.on('end', function() {
     debug("done uploading logs.");
-    if (!config.get("debugMode")) {
+    if (config.get("clean_artifacts")) {
       fs.unlinkSync(logpath);
     }
   });
@@ -195,14 +200,15 @@ var uploadArchiveOutput = function(job, done, archiveOutput) {
     debug("unable to upload:", err.stack);
   });
   upload.on('progress', function() {
-    debug(`archive upload progress: ${upload.progressAmount} of `+
-      `${upload.progressTotal}`
-    );
-    job.progress(upload.progressAmount, upload.progressTotal);
+    // update job progress to keep from timing out
+    // step 3: this phase should stay between 66% and 100%
+    var normalizedComplete = upload.progressAmount + (2 * upload.progressTotal);
+    var normalizedTotal = upload.progressTotal * 3;
+    job.progress(normalizedComplete, normalizedTotal);
   });
   upload.on('end', function() {
     debug("done uploading");
-    if (!config.get("debugMode")) {
+    if (!config.get("clean_artifacts")) {
       // clean up!
       fs.unlinkSync(archiveOutput);
     }    
@@ -227,7 +233,9 @@ var downloadArchive = function(job, archiveURL, callback) {
     // keep job updated as download happens
     response.on("data", function(chunk) {
       currentDownload += chunk.length;
-      job.progress(currentDownload, totalDownload);
+      // update job progress to keep from timing out
+      // step 1: this phase should not raise completeness above 33%
+      job.progress(currentDownload, totalDownload * 3);
     });
     response.on("end", function() {
       callback(archivePath, null);

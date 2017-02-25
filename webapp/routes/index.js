@@ -20,9 +20,9 @@ router.post('/job', function(req, res) {
   var key_pair = hash_generator.generate(
     config.get("secret_token_length"),
     config.get("secret_token_length"),
-    config.get("secret_token_salt"));
+    config.get("secret_token_salt")
+  );
   job_args.secret = key_pair.secret;
-  debug(`create job args ${JSON.stringify(job_args)}`);
   var job = job_queue.create("job", job_args)
   .ttl(config.get("job_defaults.ttl"))
   .save( function(err){

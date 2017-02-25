@@ -12,7 +12,7 @@
   },
   "css_presets": ["bestFit", "horizontalPresentation", "verticalPresentation"],
   "redis_url": "localhost:6379",
-  "barc_path": "/Users/charley/src/barc/build/barc",
-  "debugMode": true,
+  "debug_queue": true,
+  "clean_artifacts": true,
   "secret_token_length": 32
 }

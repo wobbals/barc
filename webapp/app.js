@@ -9,7 +9,7 @@ var debug = require('debug')('barc:worker');
 var config = require('config');
 var kue = require('kue');
 
-if (config.get("debugMode")) {
+if (config.get("debug_queue")) {
   // optional: setup kue monitoring/debugging webapp
   debug("Kue admin listening on port 3001");
   kue.app.listen(3001);
