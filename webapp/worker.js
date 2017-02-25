@@ -155,10 +155,8 @@ var uploadLogs = function(job, logpath) {
   debug(`Upload job ${job.id} logs from ${logpath} to ${key} at ` +
     ` ${config.get("s3_bucket")}`
   );
-
   const stats = fs.statSync(logpath);
   const fileSizeInBytes = stats.size;
-  debug(`Log file size: ${fileSizeInBytes}`);
   var params = {
     localFile: logpath,
     s3Params: {
@@ -171,9 +169,7 @@ var uploadLogs = function(job, logpath) {
     debug("unable to upload logs:", err.stack);
   });
   upload.on('progress', function() {
-    debug(`log upload progress: ${upload.progressAmount} of ` +
-      `${upload.progressTotal}`
-    );
+    // yay?
   });
   upload.on('end', function() {
     debug("done uploading logs.");
