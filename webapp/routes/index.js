@@ -38,6 +38,7 @@ router.get('/job/:id', function(req, res) {
   kue.Job.get(req.params.id, function(err, job) {
     if (err) {
       res.status(404).json({"error": `unknown job ${req.params.id}`});
+      return;
     }
     if (job_helper.validateJobToken(job, req.query.token)) {
       res.json(job_helper.getJobStatus(job, job_queue));

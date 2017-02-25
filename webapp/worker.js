@@ -143,7 +143,7 @@ var processArchive = function(job, done, archiveLocalPath) {
     });
     // clean up the mess we made during normal use
     fs.unlinkSync(logpath);
-    if (!config.get("clean_artifacts")) {
+    if (config.get("clean_artifacts")) {
       // probably also good to clean up source archive if we're not debugging
       fs.unlinkSync(archiveLocalPath);
     }
@@ -172,7 +172,7 @@ var uploadLogs = function(job, logpath) {
     // yay?
   });
   upload.on('end', function() {
-    debug("done uploading logs.");
+    debug("done uploading logs");
     if (config.get("clean_artifacts")) {
       fs.unlinkSync(logpath);
     }
@@ -203,11 +203,11 @@ var uploadArchiveOutput = function(job, done, archiveOutput) {
     job.progress(normalizedComplete, normalizedTotal);
   });
   upload.on('end', function() {
-    debug("done uploading");
-    if (!config.get("clean_artifacts")) {
+    debug("done uploading archive");
+    if (config.get("clean_artifacts")) {
       // clean up!
       fs.unlinkSync(archiveOutput);
-    }    
+    }
     var results = {};
     results.s3_key = key;
     debug(`job ${job.id} completed successfully.`);
