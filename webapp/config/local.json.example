@@ -5,5 +5,9 @@
   "s3_region":"",
   "s3_prefix":"",
   "secret_token_salt":"",
-  "barc_path": ""
+  "barc_path": "",
+  "use_https": false,
+  "ssl_cert_path":"",
+  "ssl_key_path":"",
+  "ssl_chain_path":""
 }

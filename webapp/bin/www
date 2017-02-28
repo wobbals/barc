@@ -7,6 +7,9 @@
 var app = require('../app');
 var debug = require('debug')('webapp:server');
 var http = require('http');
+var https = require('https');
+var config = require('config');
+const fs = require('fs');
 
 /**
  * Get port from environment and store in Express.
@@ -19,15 +22,26 @@ app.set('port', port);
  * Create HTTP server.
  */
 
-var server = http.createServer(app);
 
 /**
  * Listen on provided port, on all network interfaces.
  */
-
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
+if (config.get("use_https")) {
+  var options = {
+    key: fs.readFileSync(config.get("ssl_key_path")),
+    cert: fs.readFileSync(config.get("ssl_cert_path")),
+    ca: fs.readFileSync(config.get("ssl_chain_path"))
+  };
+  var server = https.createServer(options, app);
+  server.listen(port);
+  server.on('error', onError);
+  server.on('listening', onListening);
+} else {
+  var server = http.createServer(app);
+  server.listen(port);
+  server.on('error', onError);
+  server.on('listening', onListening);
+}
 
 /**
  * Normalize a port into a number, string, or false.
