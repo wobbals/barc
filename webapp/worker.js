@@ -83,7 +83,7 @@ var processArchive = function(job, done, archiveLocalPath) {
   }
   debug("spawn process " + barc);
   debug("args: ", args);
-  
+
   // Note for nodemon users; this process creates files in the cwd. It will
   // kill your process without saying much and leave you well confused.
   const child = child_process.spawn(barc, args, {

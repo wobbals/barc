@@ -8,7 +8,7 @@ var config = require('config');
 var hash_generator = require('random-hash-generator');
 
 router.get('/', function(req, res, next) {
-  res.render('index', { title: 'Express' });
+  res.render('index', { title: 'BARC' });
 });
 
 router.post('/job', function(req, res) {
