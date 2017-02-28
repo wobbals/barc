@@ -9,13 +9,15 @@ var debug = require('debug')('barc:worker');
 var config = require('config');
 var kue = require('kue');
 
+var routes = require('./routes/index');
+
+// NB this must come after including index.js, which creates and configures
+// the first call to kue.createQueue. 
 if (config.get("debug_queue")) {
   // optional: setup kue monitoring/debugging webapp
   debug("Kue admin listening on port 3001");
   kue.app.listen(3001);
 }
-
-var routes = require('./routes/index');
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));

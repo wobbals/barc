@@ -9,5 +9,7 @@
   "use_https": false,
   "ssl_cert_path":"",
   "ssl_key_path":"",
-  "ssl_chain_path":""
+  "ssl_chain_path":"",
+  "redis_host": "localhost",
+  "redis_port": 6379
 }

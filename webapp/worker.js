@@ -1,15 +1,23 @@
-var https = require('https');
-var validator = require('validator');
-var config = require('config');
-var kue = require('kue');
-var queue = kue.createQueue();
-var sleep = require('sleep');
-var debug = require('debug')('barc:worker');
+#!/usr/bin/env node
 
 const child_process = require('child_process');
 const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
+
+var https = require('https');
+var validator = require('validator');
+var config = require('config');
+var debug = require('debug')('barc:worker');
+
+var kue = require('kue');
+var kue_opts = {
+  redis: {
+      host: config.has("redis_host") ? config.get("redis_host") : 'redis',
+      port: config.has("redis_port") ? config.get("redis_port") : 6379,
+  }
+};
+var queue = kue.createQueue(kue_opts);
 
 // use amazon SDK for permissions management, and 's3' module for decent 
 // multipart implementation
@@ -64,7 +72,7 @@ var processJob = function(job, done) {
 
 var processArchive = function(job, done, archiveLocalPath) {
   debug("Processing job " + job.id)
-  var barc = config.get("barc_path");
+  var barc = config.has("barc_path") ? config.get("barc_path") : 'barc';
   var cwd = process.cwd();
   debug("Working from " + cwd);
   debug(`job args: ` + JSON.stringify(job.data));
@@ -147,6 +155,9 @@ var processArchive = function(job, done, archiveLocalPath) {
       // probably also good to clean up source archive if we're not debugging
       fs.unlinkSync(archiveLocalPath);
     }
+  });
+  child.on('error', function(err) {
+    console.log("Spawn error " + err);
   });
 }
 

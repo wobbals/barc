@@ -1,11 +1,17 @@
 var express = require('express');
 var router = express.Router();
-var kue = require('kue');
-var job_queue = kue.createQueue();
-var job_helper = require("../helpers/job_helper");
 var debug = require('debug')('webapp:index');
 var config = require('config');
 var hash_generator = require('random-hash-generator');
+var kue = require('kue');
+var kue_opts = {
+  redis: {
+      host: config.has("redis_host") ? config.get("redis_host") : 'redis',
+      port: config.has("redis_port") ? config.get("redis_port") : 6379,
+  }
+};
+var job_queue = kue.createQueue(kue_opts);
+var job_helper = require("../helpers/job_helper");
 
 router.get('/', function(req, res, next) {
   res.render('index', { title: 'BARC' });
