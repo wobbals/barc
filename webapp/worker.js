@@ -19,16 +19,7 @@ var kue_opts = {
 };
 var queue = kue.createQueue(kue_opts);
 
-// use amazon SDK for permissions management, and 's3' module for decent 
-// multipart implementation
-var AWS = require('aws-sdk');
 var s3 = require('s3');
-
-var s3_client = new AWS.S3({
-    accessKeyId: config.get("aws_token"),
-    secretAccessKey: config.get("aws_secret"),
-    region: config.get("s3_region")
-});
 
 var uploader = s3.createClient({
   maxAsyncS3: 20,     // this is the default
@@ -36,7 +27,11 @@ var uploader = s3.createClient({
   s3RetryDelay: 1000, // this is the default
   multipartUploadThreshold: 20971520, // this is the default (20 MB)
   multipartUploadSize: 15728640, // this is the default (15 MB)
-  s3Client: s3_client
+  s3Options: {
+    accessKeyId: config.get("aws_token"),,
+    secretAccessKey: config.get("aws_secret"),
+    region: config.get("s3_region")
+  },
 });
 
 process.once( 'SIGTERM', function ( sig ) {

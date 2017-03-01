@@ -41,6 +41,12 @@ make
 
 Binary will be available in your `build` directory. Have at it!
 
+# Running from Docker
+
+* From the root of this repository, build the containter: 
+  `docker build -t barc-worker .`
+* Run the container: `docker run -d --name barc-worker barc-worker`
+
 # Usage
 
 ## CLI tool

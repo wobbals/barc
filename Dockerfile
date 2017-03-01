@@ -58,5 +58,7 @@ WORKDIR /var/lib/barc/webapp
 RUN npm install
 
 ENV PATH=${PATH}:/var/lib/barc/build
+ENV DEBUG=barc:worker
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
 CMD [ "npm", "run", "worker" ]

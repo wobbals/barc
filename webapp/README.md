@@ -6,11 +6,17 @@ This webapp provides a web programmable interface to the barc CLI utility.
 
 ## Running
 
+### Directly
+
 * Install deps with `npm install`
 * Launch a redis server
 * Start the webserver with `npm start`
 * Start a worker process (or many) with `npm run worker`. One worker will spawn
   one barc process, and work on the queue serially.
+  
+### From Docker
+
+* `docker-compose up --build -d`
 
 ## Creating jobs
 
