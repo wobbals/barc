@@ -6,7 +6,7 @@ var hash_generator = require('random-hash-generator');
 var kue = require('kue');
 var kue_opts = {
   redis: {
-      host: config.has("redis_host") ? config.get("redis_host") : 'redis',
+      host: process.env.redis_host || config.get("redis_host"),
       port: config.has("redis_port") ? config.get("redis_port") : 6379,
   }
 };

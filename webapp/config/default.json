@@ -10,7 +10,12 @@
     "min_width": 100,
     "min_height": 100
   },
-  "css_presets": ["bestFit", "horizontalPresentation", "verticalPresentation"],
+  "known_css_presets": [
+    "bestFit",
+    "horizontalPresentation",
+    "verticalPresentation",
+    "custom"
+  ],
   "debug_queue": true,
   "clean_artifacts": true,
   "secret_token_length": 32

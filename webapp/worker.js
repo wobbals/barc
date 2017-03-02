@@ -13,11 +13,13 @@ var debug = require('debug')('barc:worker');
 var kue = require('kue');
 var kue_opts = {
   redis: {
-      host: config.has("redis_host") ? config.get("redis_host") : 'redis',
+      host: process.env.redis_host || config.get("redis_host"),
       port: config.has("redis_port") ? config.get("redis_port") : 6379,
   }
 };
 var queue = kue.createQueue(kue_opts);
+
+var job_helper = require("./helpers/job_helper.js");
 
 var s3 = require('s3');
 
@@ -50,11 +52,15 @@ queue.process('job', function(job, done) {
 });
 
 var processJob = function(job, done) {
-  debug("Received job " + job.id)
-  if (job.data.archiveURL && validator.isURL(job.data.archiveURL)) {
-    downloadArchive(job, job.data.archiveURL, function(result, error) {
+  debug(`Received job ${job.id}`);
+  // this should have already happened in the webapp, but double check to
+  // be extra safe.
+  var requestArgs = job_helper.parseJobArgs(job.data);
+  if (requestArgs.archiveURL && validator.isURL(requestArgs.archiveURL)) {
+    downloadArchive(job, requestArgs.archiveURL, 
+      function(downloadedArchivePath, error) {
       if (!error) {
-        processArchive(job, done, result);
+        processArchive(job, done, downloadedArchivePath, requestArgs);
       } else {
         done("Failed to download archive");
       }
@@ -65,24 +71,33 @@ var processJob = function(job, done) {
   }
 };
 
-var processArchive = function(job, done, archiveLocalPath) {
+var processArchive = function(job, done, archiveLocalPath, requestArgs) {
   debug("Processing job " + job.id)
   var barc = config.has("barc_path") ? config.get("barc_path") : 'barc';
   var cwd = process.cwd();
   debug("Working from " + cwd);
-  debug(`job args: ` + JSON.stringify(job.data));
+  debug(`job args: ` + JSON.stringify(requestArgs));
   var archiveOutput = `${cwd}/${job.id}.mp4`;
   var args = [];
   args.push(`-i${archiveLocalPath}`);
   args.push(`-o${archiveOutput}`);
-  if (job.data.width) {
-    args.push("-w" + parseInt(job.data.width));    
+  if (requestArgs.width) {
+    args.push("-w" + parseInt(requestArgs.width));    
   }
-  if (job.data.height) {
-    args.push("-h" + parseInt(job.data.height));
+  if (requestArgs.height) {
+    args.push("-h" + parseInt(requestArgs.height));
   }
-  if (job.data.css_preset) {
-    args.push("-p" + job.data.css_preset);
+  if (requestArgs.cssPreset) {
+    args.push("-p" + requestArgs.cssPreset);
+  }
+  if (requestArgs.beginOffset) {
+    args.push(`-b${requestArgs.beginOffset}`);
+  }
+  if (requestArgs.endOffset) {
+    args.push(`-e${requestArgs.endOffset}`);
+  }
+  if (requestArgs.customCSS) {
+    args.push(`-c${requestArgs.customCSS}`);
   }
   debug("spawn process " + barc);
   debug("args: ", args);

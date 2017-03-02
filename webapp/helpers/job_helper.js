@@ -22,10 +22,14 @@ var parseJobArgs = function(args) {
     return result;
   }
   
-  if (args.css_preset && 
-    config.get("css_presets").indexOf(args.css_preset) > -1)
+  if (args.cssPreset && 
+    config.get("known_css_presets").indexOf(args.cssPreset) > -1)
   {
-    result.css_preset = args.css_preset;
+    result.cssPreset = args.cssPreset;
+  }
+
+  if (result.cssPreset == "custom") {
+    result.customCSS = validator.stripLow(args.customCSS);
   }
   
   if (validator.isInt(args.width + '', { 
@@ -44,6 +48,14 @@ var parseJobArgs = function(args) {
     result.height = parseInt(args.height);
   } else {
     result.height = config.get("job_defaults.height");
+  }
+  
+  if (validator.isInt(args.beginOffset + '')) {
+    result.beginOffset = parseInt(args.beginOffset);
+  }
+  
+  if (validator.isInt(args.endOffset + '')) {
+    result.endOffset = parseInt(args.endOffset);
   }
   
   return result;

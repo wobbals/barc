@@ -43,6 +43,17 @@ token for fetching job progress and results in the future.
 {"job_id":132,"access_token":"GxgApnuNQVHN6GWJ0vPNn0nBTUn5unxE"}
 ```
 
+### Acceptable job arguments
+
+New jobs can use the same arguments as the CLI tool. These include:
+
+* `width`, `height` - output dimensions of the processed container.
+* `archiveURL` -- this is where the worker will go fetch your individual stream
+  archive. These archives must be in the same format as provided by OpenTok.
+* `cssPreset` -- one of the presets defined in the command line utility.
+* `customCSS` -- if `custom` is used in the `css_preset` argument, then you
+  should specify a CSS stylesheet string here.
+* `beginPffset`
 
 ## Monitoring job progress
 
