@@ -33,9 +33,12 @@ RUN make install
 WORKDIR /var/lib/barc/ext
 RUN git clone https://github.com/FFmpeg/FFmpeg.git
 WORKDIR /var/lib/barc/ext/FFmpeg
-RUN git checkout release/3.2
+RUN git checkout n3.2.4
 
-RUN ./configure
+RUN ./configure --enable-libx264 --enable-gpl \
+  --extra-ldflags=-L/usr/local/lib \
+  --extra-cflags=-I/usr/local/include \
+  --enable-libopus
 RUN make
 RUN make install
 
