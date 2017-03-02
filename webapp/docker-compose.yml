@@ -11,7 +11,7 @@ services:
       - "redis"
     environment:
       - PORT=443
-      - DEBUG=*
+      - DEBUG=webapp:*
       - redis_host=redis
   
   redis:
