@@ -57,7 +57,7 @@ right: 0;
 margin: 0px;
 left: 20%;
 height: 100%;
-width: 40%;
+width: 80%;
 })";
 
 const std::string kSquareTopPresentation =
