@@ -150,7 +150,7 @@ int archive_open(struct archive_t** archive_out, int width, int height,
     if (!strcmp("bestFit", css_preset)) {
         style_sheet = Layout::kBestfitCss;
     } else if (!strcmp("verticalPresentation", css_preset)) {
-        style_sheet = Layout::kHorizontalPresentation;
+        style_sheet = Layout::kVerticalPresentation;
     } else if (!strcmp("horizontalPresentation", css_preset)) {
         style_sheet = Layout::kHorizontalPresentation;
     } else if (!strcmp("custom", css_preset)) {
