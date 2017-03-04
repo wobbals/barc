@@ -3,7 +3,6 @@
 //  barc
 //
 //  Created by Charley Robinson on 2/10/17.
-//  Copyright © 2017 TokBox, Inc. All rights reserved.
 //
 
 #ifndef smart_avframe_h

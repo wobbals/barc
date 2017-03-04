@@ -3,7 +3,6 @@
 //  barc
 //
 //  Created by Charley Robinson on 1/26/17.
-//  Copyright © 2017 TokBox, Inc. All rights reserved.
 //
 
 #ifndef archive_stream_h
