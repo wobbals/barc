@@ -12,7 +12,7 @@
 #include <assert.h>
 #include <MagickWand/MagickWand.h>
 #include <uv.h>
-
+#include <getopt.h>
 
 #include "yuv_rgb.h"
 #include "archive_stream.h"
@@ -177,7 +177,29 @@ int main(int argc, char **argv)
     int64_t end_offset = -1;
     int c;
 
-    while ((c = getopt (argc, argv, "i:o:w:h:p:c:b:e:s:")) != -1) {
+    static struct option long_options[] =
+    {
+        /* These options set a flag. */
+        //{"repairmode", no_argument, &repairmode_flag, 0},
+        /* These options don’t set a flag.
+         We distinguish them by their indices. */
+        {"input", required_argument,        0, 'i'},
+        {"output", optional_argument,       0, 'o'},
+        {"width", optional_argument,        0, 'w'},
+        {"height", optional_argument,       0, 'h'},
+        {"css_preset", optional_argument,   0, 'p'},
+        {"custom_css", optional_argument,   0, 'c'},
+        {"css_preset", optional_argument,   0, 'p'},
+        {"begin_offset", optional_argument, 0, 'b'},
+        {"end_offset", optional_argument,   0, 'e'},
+        {0, 0, 0, 0}
+    };
+    /* getopt_long stores the option index here. */
+    int option_index = 0;
+
+    while ((c = getopt_long(argc, argv, "i:o:w:h:p:c:b:e:",
+                            long_options, &option_index)) != -1)
+    {
         switch (c)
         {
             case 'i':
@@ -185,9 +207,6 @@ int main(int argc, char **argv)
                 break;
             case 'o':
                 output_path = optarg;
-                break;
-            case 's':
-                manifest_supplemental = optarg;
                 break;
             case 'w':
                 out_width = atoi(optarg);
@@ -220,10 +239,6 @@ int main(int argc, char **argv)
         }
     }
 
-    // some defaults for debugging. don't use.
-    if (!input_path) {
-        input_path = "/Users/charley/src/barc/sample/audio_sync.zip";
-    }
     if (!output_path) {
         output_path = "output.mp4";
     }
