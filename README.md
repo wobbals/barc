@@ -27,3 +27,7 @@ with `videoType: screen` in the manifest.
 
 ![horizontalPresentation](http://i.imgur.com/bxuRdSh.png)
 
+## Auto
+
+Switches between horizontal presentation and bestfit, determined by the presence
+of a screensharing stream.
