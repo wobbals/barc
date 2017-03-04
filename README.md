@@ -17,7 +17,7 @@ media from the archive. Features include:
 ## Best fit
 Automatically tries to fit as much content as possible to the viewport.
 
-[[http://i.imgur.com/zeFBEMZ.png|alt=bestFit]]
+![bestFit](http://i.imgur.com/zeFBEMZ.png)
 
 ## Horizontal Presentation
 
@@ -25,5 +25,5 @@ Uses CSS class `focus` to give most of the viewport's real estate to a single
 stream. If no class is provided, will automatically assign focus to any streams
 with `videoType: screen` in the manifest.
 
-[[http://i.imgur.com/bxuRdSh.png|horizontalPresentation]]
+![horizontalPresentation](http://i.imgur.com/bxuRdSh.png)
 
