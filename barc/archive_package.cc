@@ -22,6 +22,7 @@ struct archive_t {
     FILE* source_file;
     std::vector<struct archive_stream_t*> streams;
     ArchiveLayout* layout;
+    char auto_layout;
     int width;
     int height;
 };
@@ -142,10 +143,8 @@ int archive_open(struct archive_t** archive_out, int width, int height,
 
     archive->layout = new ArchiveLayout(width, height);
 
-    // Choose layout management
-    if (!css_preset) {
-        css_preset = "bestFit";
-    }
+    archive->auto_layout = 0;
+
     std::string style_sheet;
     if (!strcmp("bestFit", css_preset)) {
         style_sheet = Layout::kBestfitCss;
@@ -155,8 +154,12 @@ int archive_open(struct archive_t** archive_out, int width, int height,
         style_sheet = Layout::kHorizontalPresentation;
     } else if (!strcmp("custom", css_preset)) {
         style_sheet = css_custom;
+    } else if (!strcmp("auto", css_preset)) {
+        archive->auto_layout = 1;
+        style_sheet = Layout::kBestfitCss;
     } else {
-        printf("No stylesheet preset defined. Using bestfit.");
+        printf("No stylesheet preset defined. Using auto.");
+        archive->auto_layout = 1;
         style_sheet = Layout::kBestfitCss;
     }
 
@@ -185,11 +188,22 @@ int archive_populate_stream_coords(struct archive_t* archive,
 {
     // Regenerate stream list every tick to allow on-the-fly layout changes
     std::vector<ArchiveStreamInfo> stream_info;
+    // check to see if any active streams have focus for auto layoute
+    char has_focus = 0;
     for (struct archive_stream_t* stream : archive->streams) {
-        if (archive_stream_is_active_at_time(stream, clock_time,
-                                             clock_time_base) &&
-            archive_stream_has_video_for_time(stream, clock_time,
-                                              clock_time_base))
+        char will_use_stream =
+        (archive_stream_is_active_at_time(stream, clock_time,
+                                          clock_time_base) &&
+         archive_stream_has_video_for_time(stream, clock_time,
+                                           clock_time_base));
+
+        if (will_use_stream && !(strcmp(archive_stream_get_class(stream),
+                                        "focus")))
+        {
+            has_focus = 1;
+        }
+
+        if (will_use_stream)
         {
             stream_info.push_back
             (ArchiveStreamInfo(archive_stream_get_name(stream),
@@ -197,7 +211,13 @@ int archive_populate_stream_coords(struct archive_t* archive,
                                true));
         }
     }
-    
+
+    // switch between bestfit and horizontal presentation if in auto layout mode
+    if (archive->auto_layout) {
+        archive->layout->setStyleSheet
+        (has_focus ? Layout::kHorizontalPresentation : Layout::kBestfitCss);
+    }
+
     StreamPositions positions = archive->layout->layout(stream_info);
     for (ComposerLayoutStreamPosition position : positions) {
         for (struct archive_stream_t* stream : archive->streams) {
