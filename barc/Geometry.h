@@ -85,6 +85,7 @@ z-index: 0;
     const std::string kBestfitCss =
     R"(stream {
     float: left;
+object-fit: cover;
 }
 stream:first-child:nth-last-child(1) {
 width: 100%;
@@ -114,8 +115,8 @@ stream:first-child:nth-last-child(8) ~ stream,
 stream:first-child:nth-last-child(9),
 stream:first-child:nth-last-child(9) ~ stream
 {
-width: 33.4%;
-height: 33.34%;
+width: 33.33%;
+height: 33.33%;
 })";
 }  // namespace Layout
 

@@ -99,6 +99,9 @@ static int tick_video(struct file_writer_t* file_writer,
                       int64_t clock_begin_offset, char skip_frame)
 {
     int ret = -1;
+    if (skip_frame) {
+        return 0;
+    }
 
     archive_populate_stream_coords(archive, clock_time, clock_time_base);
 
@@ -108,21 +111,19 @@ static int tick_video(struct file_writer_t* file_writer,
     archive_get_active_streams_for_time(archive, clock_time, clock_time_base,
                                         &active_streams,
                                         &active_stream_count);
-    // if we're skipping the frame, no need for a magic frame. just pull the
-    // frames out of the video graph and do nothing.
-    if (!skip_frame) {
-        struct frame_builder_callback_data_t* callback_data =
-        (struct frame_builder_callback_data_t*)
-        malloc(sizeof(struct frame_builder_callback_data_t));
-        callback_data->clock_time = clock_time;
-        callback_data->clock_begin_offset = clock_begin_offset;
-        callback_data->file_writer = file_writer;
-        frame_builder_begin_frame(frame_builder,
-                                  file_writer->out_width,
-                                  file_writer->out_height,
-                                  (enum AVPixelFormat)AV_PIX_FMT_YUV420P,
-                                  callback_data);
-    }
+
+    struct frame_builder_callback_data_t* callback_data =
+    (struct frame_builder_callback_data_t*)
+    malloc(sizeof(struct frame_builder_callback_data_t));
+    callback_data->clock_time = clock_time;
+    callback_data->clock_begin_offset = clock_begin_offset;
+    callback_data->file_writer = file_writer;
+    frame_builder_begin_frame(frame_builder,
+                              file_writer->out_width,
+                              file_writer->out_height,
+                              (enum AVPixelFormat)AV_PIX_FMT_YUV420P,
+                              callback_data);
+
 
     // append source frames to magic frame
     for (int i = 0; i < active_stream_count; i++) {
