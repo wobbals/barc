@@ -1,17 +1,17 @@
 cmake_minimum_required (VERSION 3.5)
 project (Barc)
 
-#include_directories ("src" "ext")
-
-file(GLOB SOURCES "barc/*.c" "barc/*.cpp" "barc/*.cc")
-
 set (CMAKE_CXX_FLAGS "--std=gnu++11 ${CMAKE_CXX_FLAGS}")
 set (CMAKE_C_FLAGS "--std=gnu99 ${CMAKE_C_FLAGS}")
 
-add_executable (barc ${SOURCES})
+file (GLOB SOURCES "barc/*.c" "barc/*.cpp" "barc/*.cc")
+list (REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/barc/main.c")
+
+message ("Using sources: ${SOURCES}")
 
 add_subdirectory (${CMAKE_SOURCE_DIR}/ext/litehtml)
-target_link_libraries(barc PUBLIC litehtml)
+
+link_libraries (litehtml)
 
 find_package (PkgConfig)
 pkg_check_modules (MAGICKWAND REQUIRED MagickWand)
@@ -41,18 +41,18 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(LIBAVFILTER_LDFLAGS "${REPAIRED_FLAG}")
 endif()
 
-target_link_libraries (barc PUBLIC ${MAGICKWAND_LDFLAGS})
-target_link_libraries (barc PUBLIC ${LIBAVCODEC_LDFLAGS})
-target_link_libraries (barc PUBLIC ${LIBAVUTIL_LDFLAGS})
-target_link_libraries (barc PUBLIC ${LIBAVFORMAT_LDFLAGS})
-target_link_libraries (barc PUBLIC ${LIBAVFILTER_LDFLAGS})
-target_link_libraries (barc PUBLIC ${LIBSWSCALE_LDFLAGS})
-target_link_libraries (barc PUBLIC ${LIBSWRESAMPLE_LDFLAGS})
-target_link_libraries (barc PUBLIC ${LIBUV_LDFLAGS})
-target_link_libraries (barc PUBLIC ${LIBZIP_LDFLAGS})
-target_link_libraries (barc PUBLIC ${LIBJANSSON_LDFLAGS})
+link_libraries (${MAGICKWAND_LDFLAGS})
+link_libraries (${LIBAVCODEC_LDFLAGS})
+link_libraries (${LIBAVUTIL_LDFLAGS})
+link_libraries (${LIBAVFORMAT_LDFLAGS})
+link_libraries (${LIBAVFILTER_LDFLAGS})
+link_libraries (${LIBSWSCALE_LDFLAGS})
+link_libraries (${LIBSWRESAMPLE_LDFLAGS})
+link_libraries (${LIBUV_LDFLAGS})
+link_libraries (${LIBZIP_LDFLAGS})
+link_libraries (${LIBJANSSON_LDFLAGS})
 
-target_include_directories (barc PUBLIC
+include_directories (
   ${PROJECT_SOURCE_DIR}/ext
   ${MAGICKWAND_INCLUDE_DIRS}
   ${LIBAVCODEC_INCLUDE_DIRS}
@@ -65,3 +65,18 @@ target_include_directories (barc PUBLIC
   ${LIBZIP_INCLUDE_DIRS}
   ${LIBJANSSON_INCLUDE_DIRS}
 )
+
+# This comes at the end of all the linking commands issued above.
+add_library (libbarc ${SOURCES})
+link_libraries (libbarc)
+add_executable (barc "barc/main.c")
+
+add_subdirectory(ext/googletest/googletest)
+enable_testing (true)
+include_directories (
+  ${gtest_SOURCE_DIR}/include
+  ${gtest_SOURCE_DIR}
+  ${PROJECT_SOURCE_DIR}/barc
+)
+cxx_executable(test_smart_avframe test gtest_main test/test_smart_avframe.cc)
+add_test(test_smart_avframe test_smart_avframe)
