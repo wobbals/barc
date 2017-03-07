@@ -47,6 +47,7 @@ WORKDIR /var/lib/barc
 # Copy app source
 COPY CMakeLists.txt /var/lib/barc/CMakeLists.txt
 COPY barc /var/lib/barc/barc
+COPY test /var/lib/barc/test
 COPY ext /var/lib/barc/ext
 
 # build barc binary

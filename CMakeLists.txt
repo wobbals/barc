@@ -7,7 +7,7 @@ set (CMAKE_C_FLAGS "--std=gnu99 ${CMAKE_C_FLAGS}")
 file (GLOB SOURCES "barc/*.c" "barc/*.cpp" "barc/*.cc")
 list (REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/barc/main.c")
 
-message ("Using sources: ${SOURCES}")
+message ("libbarc using sources: ${SOURCES}")
 
 add_subdirectory (${CMAKE_SOURCE_DIR}/ext/litehtml)
 
