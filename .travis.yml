@@ -1,0 +1,12 @@
+sudo: required
+
+language: c
+
+services:
+  - docker
+
+before_install:
+- docker build -t barc-ws .
+
+script:
+- docker run barc-ws /bin/bash -c "cd ../build; make test"
