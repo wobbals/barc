@@ -55,6 +55,7 @@ int archive_stream_get_offset_x(struct archive_stream_t* stream);
 int archive_stream_get_offset_y(struct archive_stream_t* stream);
 int archive_stream_get_render_width(struct archive_stream_t* stream);
 int archive_stream_get_render_height(struct archive_stream_t* stream);
+int archive_stream_get_z_index(const struct archive_stream_t* stream);
 enum object_fit archive_stream_get_object_fit(struct archive_stream_t* stream);
 void archive_stream_set_offset_x(struct archive_stream_t* stream,
                                  int x_offset);
@@ -64,6 +65,8 @@ void archive_stream_set_render_width(struct archive_stream_t* stream,
                                      int width);
 void archive_stream_set_render_height(struct archive_stream_t* stream,
                                       int height);
+void archive_stream_set_z_index(struct archive_stream_t* stream,
+                                int z_index);
 void archive_stream_set_object_fit(struct archive_stream_t* stream,
                                    enum object_fit object_fit);
 int64_t archive_stream_get_stop_offset(struct archive_stream_t* stream);

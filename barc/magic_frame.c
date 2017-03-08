@@ -65,7 +65,7 @@ int magic_frame_add(MagickWand* output_wand,
     // change the color to something with an active alpha channel if you need
     // to see what's happening with the image processor
     //PixelSetColor(background, "none");
-    //PixelSetColor(background, "white");
+    //PixelSetColor(background, "red");
 
     MagickWand* input_wand = NewMagickWand();
 

@@ -29,6 +29,7 @@ namespace Layout {
     margin-top: 80%;
 width: 20%;
 height: 20%;
+object-fit: cover;
 }
 stream.focus {
 position: absolute;
@@ -37,7 +38,30 @@ left: 0;
 margin-top: 0px;
 height: 80%;
 width: 100%;
+object-fit: contain;
 })";
+
+const std::string kPip =
+R"(
+stream.focus {
+position: absolute;
+top: 0;
+right: 0;
+width: 100%;
+height: 100%;
+z-index: 100;
+object-fit: contain;
+}
+stream {
+position: absolute;
+right: 5%;
+top: 5%;
+width: 15%;
+height: 15%;
+z-index: 200;
+object-fit: cover;
+}
+)";
 
 const std::string kVerticalPresentation =
 R"(stream {

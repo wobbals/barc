@@ -152,6 +152,8 @@ int archive_open(struct archive_t** archive_out, int width, int height,
         style_sheet = Layout::kVerticalPresentation;
     } else if (!strcmp("horizontalPresentation", css_preset)) {
         style_sheet = Layout::kHorizontalPresentation;
+    } else if (!strcmp("pip", css_preset)) {
+        style_sheet = Layout::kPip;
     } else if (!strcmp("custom", css_preset)) {
         style_sheet = css_custom;
     } else if (!strcmp("auto", css_preset)) {
@@ -182,27 +184,40 @@ void archive_set_output_video_fps(struct archive_t* archive, int fps) {
     }
 }
 
+void do_auto_layout(struct archive_t* archive,
+                    std::vector<ArchiveStreamInfo>& stream_info)
+{
+    char has_focus = 0;
+    int non_focus_count = 0;
+    for (auto info : stream_info) {
+        if (0 == strcmp(info.layout_class().c_str(), "focus")) {
+            has_focus = 1;
+        } else {
+            non_focus_count++;
+        }
+    }
+
+    if (has_focus && non_focus_count < 2) {
+        archive->layout->setStyleSheet(Layout::kPip);
+    } else if (has_focus && non_focus_count > 1) {
+        archive->layout->setStyleSheet(Layout::kHorizontalPresentation);
+    } else {
+        archive->layout->setStyleSheet(Layout::kBestfitCss);
+    }
+}
+
 int archive_populate_stream_coords(struct archive_t* archive,
                                    int64_t clock_time,
                                    AVRational clock_time_base)
 {
     // Regenerate stream list every tick to allow on-the-fly layout changes
     std::vector<ArchiveStreamInfo> stream_info;
-    // check to see if any active streams have focus for auto layoute
-    char has_focus = 0;
     for (struct archive_stream_t* stream : archive->streams) {
         char will_use_stream =
         (archive_stream_is_active_at_time(stream, clock_time,
                                           clock_time_base) &&
          archive_stream_has_video_for_time(stream, clock_time,
                                            clock_time_base));
-
-        if (will_use_stream && !(strcmp(archive_stream_get_class(stream),
-                                        "focus")))
-        {
-            has_focus = 1;
-        }
-
         if (will_use_stream)
         {
             stream_info.push_back
@@ -214,8 +229,7 @@ int archive_populate_stream_coords(struct archive_t* archive,
 
     // switch between bestfit and horizontal presentation if in auto layout mode
     if (archive->auto_layout) {
-        archive->layout->setStyleSheet
-        (has_focus ? Layout::kHorizontalPresentation : Layout::kBestfitCss);
+        do_auto_layout(archive, stream_info);
     }
 
     StreamPositions positions = archive->layout->layout(stream_info);
@@ -229,6 +243,7 @@ int archive_populate_stream_coords(struct archive_t* archive,
                 archive_stream_set_render_height(stream, position.height);
                 archive_stream_set_object_fit(stream,
                                               (enum object_fit)position.fit);
+                archive_stream_set_z_index(stream, position.z);
             }
         }
     }
@@ -247,6 +262,13 @@ int64_t archive_get_finish_clock_time(struct archive_t* archive)
     return finish_time;
 }
 
+bool z_index_sort(const struct archive_stream_t* stream1,
+                   const struct archive_stream_t* stream2)
+{
+    return (archive_stream_get_z_index(stream1) <
+            archive_stream_get_z_index(stream2));
+}
+
 int archive_get_active_streams_for_time(struct archive_t* archive,
                                         int64_t clock_time,
                                         AVRational time_base,
@@ -260,6 +282,7 @@ int archive_get_active_streams_for_time(struct archive_t* archive,
             result.push_back(stream);
         }
     }
+    std::sort(result.begin(), result.end(), z_index_sort);
     *num_streams_out = (int) result.size();
     // convert to c-style array (isn't there a vector function for this??)
     struct archive_stream_t** streams_arr =

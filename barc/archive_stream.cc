@@ -59,6 +59,7 @@ struct archive_stream_t {
     int source_height;
     int x_offset;
     int y_offset;
+    int z_index;
     int render_width;
     int render_height;
     enum object_fit object_fit;
@@ -541,6 +542,11 @@ int archive_stream_get_render_width(struct archive_stream_t* stream) {
 int archive_stream_get_render_height(struct archive_stream_t* stream) {
     return stream->render_height;
 }
+
+int archive_stream_get_z_index(const struct archive_stream_t* stream) {
+    return stream->z_index;
+}
+
 enum object_fit archive_stream_get_object_fit(struct archive_stream_t* stream) {
     return stream->object_fit;
 }
@@ -569,6 +575,13 @@ void archive_stream_set_render_height(struct archive_stream_t* stream,
 {
     stream->render_height = height;
 }
+
+void archive_stream_set_z_index(struct archive_stream_t* stream,
+                                int z_index)
+{
+    stream->z_index = z_index;
+}
+
 
 void archive_stream_set_object_fit(struct archive_stream_t* stream,
                                    enum object_fit object_fit)
