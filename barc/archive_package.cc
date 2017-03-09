@@ -146,7 +146,11 @@ int archive_open(struct archive_t** archive_out, int width, int height,
     archive->auto_layout = 0;
 
     std::string style_sheet;
-    if (!strcmp("bestFit", css_preset)) {
+    if (NULL == css_preset) {
+        printf("No stylesheet preset defined. Using auto.");
+        archive->auto_layout = 1;
+        style_sheet = Layout::kBestfitCss;
+    } else if (!strcmp("bestFit", css_preset)) {
         style_sheet = Layout::kBestfitCss;
     } else if (!strcmp("verticalPresentation", css_preset)) {
         style_sheet = Layout::kVerticalPresentation;
@@ -160,7 +164,7 @@ int archive_open(struct archive_t** archive_out, int width, int height,
         archive->auto_layout = 1;
         style_sheet = Layout::kBestfitCss;
     } else {
-        printf("No stylesheet preset defined. Using auto.");
+        printf("unknown css preset defined. Using auto.");
         archive->auto_layout = 1;
         style_sheet = Layout::kBestfitCss;
     }
