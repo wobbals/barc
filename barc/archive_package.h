@@ -29,6 +29,4 @@ int archive_get_active_streams_for_time(struct archive_t* archive,
                                         struct archive_stream_t*** streams_out,
                                         int* num_streams_out);
 
-void archive_set_output_video_fps(struct archive_t* archive, int fps);
-
 #endif /* archive_package_h */

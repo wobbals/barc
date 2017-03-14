@@ -83,7 +83,7 @@ int open_manifest_item(struct archive_stream_t** stream, json_t* item) {
         stream_class = "focus";
     }
 
-    ret = archive_stream_open(stream, filename_str, start, stop,
+    ret = archive_stream_open_file(stream, filename_str, start, stop,
                               stream_id, stream_class);
     printf("parsed archive stream %s\n", filename_str);
     return ret;
@@ -182,78 +182,6 @@ int archive_free(struct archive_t* archive) {
     return 0;
 }
 
-void archive_set_output_video_fps(struct archive_t* archive, int fps) {
-    for (struct archive_stream_t* stream : archive->streams) {
-        archive_stream_set_output_video_fps(stream, fps);
-    }
-}
-
-void do_auto_layout(struct archive_t* archive,
-                    std::vector<ArchiveStreamInfo>& stream_info)
-{
-    char has_focus = 0;
-    int non_focus_count = 0;
-    for (auto info : stream_info) {
-        if (0 == strcmp(info.layout_class().c_str(), "focus")) {
-            has_focus = 1;
-        } else {
-            non_focus_count++;
-        }
-    }
-
-    if (has_focus && non_focus_count < 2) {
-        archive->layout->setStyleSheet(Layout::kPip);
-    } else if (has_focus && non_focus_count > 1) {
-        archive->layout->setStyleSheet(Layout::kHorizontalPresentation);
-    } else {
-        archive->layout->setStyleSheet(Layout::kBestfitCss);
-    }
-}
-
-int archive_populate_stream_coords(struct archive_t* archive,
-                                   int64_t clock_time,
-                                   AVRational clock_time_base)
-{
-    // Regenerate stream list every tick to allow on-the-fly layout changes
-    std::vector<ArchiveStreamInfo> stream_info;
-    for (struct archive_stream_t* stream : archive->streams) {
-        char will_use_stream =
-        (archive_stream_is_active_at_time(stream, clock_time,
-                                          clock_time_base) &&
-         archive_stream_has_video_for_time(stream, clock_time,
-                                           clock_time_base));
-        if (will_use_stream)
-        {
-            stream_info.push_back
-            (ArchiveStreamInfo(archive_stream_get_name(stream),
-                               archive_stream_get_class(stream),
-                               true));
-        }
-    }
-
-    // switch between bestfit and horizontal presentation if in auto layout mode
-    if (archive->auto_layout) {
-        do_auto_layout(archive, stream_info);
-    }
-
-    StreamPositions positions = archive->layout->layout(stream_info);
-    for (ComposerLayoutStreamPosition position : positions) {
-        for (struct archive_stream_t* stream : archive->streams) {
-            if (!strcmp(position.stream_id.c_str(),
-                        archive_stream_get_name(stream))) {
-                archive_stream_set_offset_x(stream, position.x);
-                archive_stream_set_offset_y(stream, position.y);
-                archive_stream_set_render_width(stream, position.width);
-                archive_stream_set_render_height(stream, position.height);
-                archive_stream_set_object_fit(stream,
-                                              (enum object_fit)position.fit);
-                archive_stream_set_z_index(stream, position.z);
-            }
-        }
-    }
-    return 0;
-}
-
 int64_t archive_get_finish_clock_time(struct archive_t* archive)
 {
     int64_t finish_time = 0;
@@ -296,11 +224,5 @@ int archive_get_active_streams_for_time(struct archive_t* archive,
         streams_arr[i] = result[i];
     }
     *streams_out = streams_arr;
-    return 0;
-}
-
-int archive_free_active_streams(struct archive_stream_t* streams)
-{
-    free(streams);
     return 0;
 }

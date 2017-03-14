@@ -17,7 +17,8 @@ struct audio_mixer_t;
 int audio_mixer_alloc(struct audio_mixer_t** mixer);
 void audio_mixer_free(struct audio_mixer_t* mixer);
 
-int audio_mixer_get_samples(struct archive_t* archive,
+int audio_mixer_get_samples_for_streams
+(struct archive_stream_t** streams, int num_streams,
                             int64_t clock_time,
                             AVRational time_base,
                             AVFrame* output_frame);
