@@ -27,12 +27,12 @@ struct media_stream_s;
  * @return 0 on success
  */
 typedef int (media_stream_get_frame_cb)(struct media_stream_s* stream,
-                                        AVFrame** frame, double time_clock,
+                                        AVFrame* frame, double time_clock,
                                         void* p);
-void archive_stream_set_video_read(struct media_stream_s* stream,
-                                   media_stream_get_frame_cb* cb, void* p);
-void archive_stream_set_audio_read(struct media_stream_s* stream,
-                                   media_stream_get_frame_cb* cb, void* p);
+void media_stream_set_video_read(struct media_stream_s* stream,
+                                 media_stream_get_frame_cb* cb, void* p);
+void media_stream_set_audio_read(struct media_stream_s* stream,
+                                 media_stream_get_frame_cb* cb, void* p);
 /**
  * Fetching stream configuration - get attributes about the stream itself.
  * This should probably be cleaned up and decoding moved into the user-source
@@ -48,10 +48,10 @@ struct stream_config_s {
 
 typedef int (archive_get_config_cb)
 (struct stream_config_s* stream_config, void* p);
-void archive_stream_set_audio_config_callback
+void media_stream_set_audio_config_callback
 (struct media_stream_s* stream, archive_get_config_cb* cb,
  void* p);
-void archive_stream_set_video_config_callback
+void media_stream_set_video_config_callback
 (struct media_stream_s* stream, archive_get_config_cb* cb,
  void* p);
 
@@ -107,9 +107,9 @@ void archive_stream_set_z_index(struct media_stream_s* stream,
                                 int z_index);
 void archive_stream_set_object_fit(struct media_stream_s* stream,
                                    enum object_fit object_fit);
-void archive_stream_set_name(struct media_stream_s* stream,
+void media_stream_set_name(struct media_stream_s* stream,
                              const char* sz_name);
-void archive_stream_set_class(struct media_stream_s* stream,
+void media_stream_set_class(struct media_stream_s* stream,
                               const char* sz_class);
 const char* media_stream_get_name(struct media_stream_s* stream);
 const char* media_stream_get_class(struct media_stream_s* stream);

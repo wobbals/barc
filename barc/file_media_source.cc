@@ -21,6 +21,8 @@ extern "C" {
 // we know this to be true from documentation, it's not discoverable :-(
 static const AVRational archive_manifest_timebase = { 1, 1000 };
 
+static void setup_media_stream(struct file_media_source_s* pthis);
+
 struct file_media_source_s {
   const char* filename;
   // file source attributes
@@ -317,7 +319,7 @@ int old_media_stream_audio_read(struct file_media_source_s* pthis,
   }
 
   ret = av_audio_fifo_read(pthis->audio_sample_fifo,
-                           (void**)samples_out, num_samples);
+                           (void**)samples_out, (int)num_samples);
   assert(ret == num_samples);
   printf("pop %lld audio samples for local ts %lld %s\n",
          num_samples, local_ts, media_stream_get_name(pthis->media_stream));
@@ -390,8 +392,7 @@ int file_media_source_open(struct file_media_source_s** source_out,
     printf("Could not allocate new stream");
     return ret;
   }
-  struct file_media_source_s* pthis;
-  file_media_source_alloc(&pthis);
+  struct file_media_source_s* pthis = *source_out;
   pthis->start_offset = start_offset;
   pthis->stop_offset = stop_offset;
   pthis->filename = filename;
@@ -413,7 +414,7 @@ int file_media_source_open(struct file_media_source_s** source_out,
   }
 
   // does this actually work? i don't think so.
-  pthis->audio_context->request_sample_fmt = AV_SAMPLE_FMT_S16;
+  //pthis->audio_context->request_sample_fmt = AV_SAMPLE_FMT_S16;
 
   archive_open_codec(pthis->video_format_context,
                      AVMEDIA_TYPE_VIDEO,
@@ -425,6 +426,10 @@ int file_media_source_open(struct file_media_source_s** source_out,
                      &pthis->audio_stream_index);
 
   assert(pthis->audio_context->sample_fmt = AV_SAMPLE_FMT_S16);
+
+  media_stream_set_name(pthis->media_stream, stream_name);
+  media_stream_set_class(pthis->media_stream, stream_class);
+  setup_media_stream(pthis);
 
   // TODO: Bring this back if possible -- it's still a good check
 //  AVStream* audio_stream =
@@ -474,4 +479,64 @@ struct media_stream_s* file_media_source_get_stream
 (struct file_media_source_s* source)
 {
   return source->media_stream;
+}
+
+int video_read_callback(struct media_stream_s* stream,
+                        AVFrame* frame, double time_clock,
+                        void* p)
+{
+  return 0;
+}
+
+int audio_read_callback(struct media_stream_s* stream,
+                        AVFrame* frame, double clock_time,
+                        void* p)
+{
+  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  int ret = 0;
+  int64_t local_ts = clock_time * pthis->audio_context->sample_rate;
+  int64_t requested_pts_interval =
+  frame->nb_samples / pthis->audio_context->sample_rate;
+  // TODO: This needs to be aware of the sample rate and format of the
+  // receiver
+  printf("pop %lld time units of audio samples (%d total) for local ts %lld\n",
+         requested_pts_interval, frame->nb_samples, local_ts);
+  printf("audio fifo size before: %d\n",
+         av_audio_fifo_size(pthis->audio_sample_fifo));
+  while (frame->nb_samples > av_audio_fifo_size(pthis->audio_sample_fifo) &&
+         !ret)
+  {
+    ret = get_more_audio_samples(pthis);
+  }
+  printf("audio fifo size after: %d\n",
+         av_audio_fifo_size(pthis->audio_sample_fifo));
+
+  if (ret) {
+    return ret;
+  }
+
+  ret = av_audio_fifo_read(pthis->audio_sample_fifo, (void**)frame->data,
+                           frame->nb_samples);
+  assert(ret == frame->nb_samples);
+  printf("pop %d audio samples for local ts %lld %s\n",
+         frame->nb_samples, local_ts,
+         media_stream_get_name(pthis->media_stream));
+  int64_t offset_ts = pthis->audio_last_pts + pthis->start_offset;
+  int clock_drift = (int) (local_ts - offset_ts);
+  printf("stream %s audio clock drift=%d local_ts=%lld offset_ts=%lld\n",
+         media_stream_get_name(pthis->media_stream), clock_drift, local_ts,
+         offset_ts);
+  if (clock_drift > 1000) {
+    // global clock is ahead of the stream. truncate some data (better yet,
+    // squish some samples together
+  } else if (clock_drift < -1000) {
+    // stream is ahead of the global clock. introduce some silence or
+    // spread samples apart
+  }
+  return ret;
+}
+
+static void setup_media_stream(struct file_media_source_s* pthis) {
+  media_stream_set_video_read(pthis->media_stream, video_read_callback, pthis);
+  media_stream_set_audio_read(pthis->media_stream, audio_read_callback, pthis);
 }

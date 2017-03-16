@@ -52,28 +52,28 @@ struct media_stream_s {
 };
 
 #pragma mark - Media sources
-void archive_stream_set_video_read(struct media_stream_s* stream,
+void media_stream_set_video_read(struct media_stream_s* stream,
                                    media_stream_get_frame_cb* cb, void* p)
 {
   stream->video_read_cb = cb;
   stream->video_read_arg = p;
 }
 
-void archive_stream_set_audio_read(struct media_stream_s* stream,
+void media_stream_set_audio_read(struct media_stream_s* stream,
                                    media_stream_get_frame_cb* cb, void* p)
 {
   stream->audio_read_cb = cb;
   stream->audio_read_arg = p;
 }
 
-void archive_stream_set_audio_config_callback
+void media_stream_set_audio_config_callback
 (struct media_stream_s* stream, archive_get_config_cb* cb, void* p)
 {
   stream->audio_config_cb = cb;
   stream->audio_read_arg = p;
 }
 
-void archive_stream_set_video_config_callback
+void media_stream_set_video_config_callback
 (struct media_stream_s* stream, archive_get_config_cb* cb, void* p)
 {
   stream->video_config_cb = cb;
@@ -103,7 +103,7 @@ int archive_stream_get_video_for_time(struct media_stream_s* stream,
                                       double clock_time)
 {
   AVFrame* frame = NULL;
-  int ret = stream->video_read_cb(stream, &frame, clock_time,
+  int ret = stream->video_read_cb(stream, frame, clock_time,
                                   stream->video_read_arg);
   if (!ret) {
     printf("failed to get video frame for stream %s t=%f",
@@ -125,8 +125,19 @@ int archive_stream_get_audio_samples(struct media_stream_s* stream,
   assert(48000 == sample_rate);
   assert(format == AV_SAMPLE_FMT_S16);
 
-  AVFrame* frame = NULL;
-  int ret = stream->audio_read_cb(stream, &frame, clock_time,
+  AVFrame* frame = av_frame_alloc();
+  frame->channels = num_channels;
+  frame->format = format;
+  frame->sample_rate = sample_rate;
+  frame->nb_samples = num_samples;
+  frame->channel_layout = AV_CH_LAYOUT_MONO;
+  int ret = av_frame_get_buffer(frame, 0);
+  if (ret) {
+    printf("unable to prepare audio buffer for reading: %s\n",
+           av_err2str(ret));
+    return ret;
+  }
+  ret = stream->audio_read_cb(stream, frame, clock_time,
                                   stream->audio_read_arg);
   if (!ret) {
     printf("failed to get video frame for stream %s t=%f",
@@ -138,7 +149,7 @@ int archive_stream_get_audio_samples(struct media_stream_s* stream,
     memcpy(samples_out[i], frame->data[i],
            num_samples * av_get_bytes_per_sample(format));
   }
-
+  av_frame_free(&frame);
   return ret;
 }
 
@@ -212,6 +223,18 @@ void archive_stream_set_object_fit(struct media_stream_s* stream,
                                    enum object_fit object_fit)
 {
     stream->object_fit = object_fit;
+}
+
+void media_stream_set_name(struct media_stream_s* stream,
+                           const char* sz_name)
+{
+  stream->sz_name = sz_name;
+}
+
+void media_stream_set_class(struct media_stream_s* stream,
+                            const char* sz_class)
+{
+  stream->sz_class = sz_class;
 }
 
 const char* media_stream_get_name(struct media_stream_s* stream) {

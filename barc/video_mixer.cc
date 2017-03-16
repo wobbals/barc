@@ -57,6 +57,7 @@ void video_mixer_alloc(struct video_mixer_s** mixer_out) {
   struct video_mixer_s* mixer =
   (struct video_mixer_s*)calloc(1, sizeof(video_mixer_s));
   mixer->streams = std::vector<struct media_stream_s*>();
+  frame_builder_alloc(&mixer->frame_builder);
   *mixer_out = mixer;
 }
 

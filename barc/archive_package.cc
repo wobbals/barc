@@ -28,6 +28,8 @@ struct archive_s {
 };
 
 static int archive_open(struct archive_s* archive);
+static double archive_get_finish_clock_time(struct archive_s* archive);
+static int setup_streams_for_tick(struct archive_s* archive, double clock_time);
 
 void archive_alloc(struct archive_s** archive_out) {
   struct archive_s* archive = (struct archive_s*)
@@ -49,6 +51,8 @@ int archive_load_configuration(struct archive_s* archive,
   barc_config.css_custom = config->css_custom;
   barc_config.css_preset = config->css_preset;
   barc_config.output_path = config->output_path;
+  barc_config.video_framerate = 30; // TODO want this in a config file maybe?
+  archive->source_path = config->source_path;
   archive->begin_offset = config->begin_offset;
   archive->end_offset = config->end_offset;
   int ret = barc_read_configuration(archive->barc, &barc_config);
@@ -56,16 +60,29 @@ int archive_load_configuration(struct archive_s* archive,
 }
 
 int archive_main(struct archive_s* archive) {
-  archive_open(archive);
+  int ret = archive_open(archive);
+  if (ret) {
+    printf("failed to open archive %s", archive->source_path);
+    return ret;
+  }
   barc_open_outfile(archive->barc);
+  if (ret) {
+    printf("failed to open archive outfile");
+    return ret;
+  }
 
-  int ret = 0;
+  double end_time = archive_get_finish_clock_time(archive);
+  if (archive->end_offset > 0) {
+    end_time = fmin(end_time, archive->end_offset);
+  }
+
   double global_clock = 0;
-  while (!ret && global_clock < archive->end_offset) {
+  while (!ret && end_time > global_clock) {
+    setup_streams_for_tick(archive, global_clock);
     ret = barc_tick(archive->barc);
     global_clock = barc_get_current_clock(archive->barc);
     printf("{\"progress\": {\"complete\": %f, \"total\": %f }}\n",
-           global_clock * 1000, archive->end_offset * 1000);
+           global_clock * 1000, end_time * 1000);
   }
 
   if (ret) {
@@ -190,10 +207,10 @@ static int archive_open(struct archive_s* archive)
 
     return 0;
 }
-
-int64_t archive_get_finish_clock_time(struct archive_s* archive)
+#pragma mark - Internal utilities
+static double archive_get_finish_clock_time(struct archive_s* archive)
 {
-    int64_t finish_time = 0;
+    double finish_time = 0;
     for (struct file_media_source_s* source : archive->sources)
     {
         if (finish_time < file_stream_get_stop_offset(source)) {
@@ -209,7 +226,6 @@ static int setup_streams_for_tick(struct archive_s* archive, double clock_time)
   for (struct file_media_source_s* stream : archive->sources) {
     struct barc_source_s barc_source;
     barc_source.media_stream = file_media_source_get_stream(stream);
-    // This is not implemented yet, if you haven't just figured that out. :O
     if (file_stream_is_active_at_time(stream, clock_time)) {
       barc_add_source(archive->barc, &barc_source);
     } else {

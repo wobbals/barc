@@ -10,6 +10,7 @@
 #include <getopt.h>
 
 #include <libavformat/avformat.h>
+#include <libavfilter/avfilter.h>
 #include <assert.h>
 #include <MagickWand/MagickWand.h>
 #include <uv.h>
@@ -109,6 +110,7 @@ int main(int argc, char **argv)
     int ret;
     time_t start_time = time(NULL);
     av_register_all();
+  avfilter_register_all();
     MagickWandGenesis();
 
     struct stat file_stat;
