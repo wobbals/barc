@@ -7,19 +7,16 @@
 
 #include <unistd.h>
 #include <ctype.h>
+#include <getopt.h>
+
 #include <libavformat/avformat.h>
 #include <assert.h>
 #include <MagickWand/MagickWand.h>
 #include <uv.h>
-#include <getopt.h>
 
-#include "yuv_rgb.h"
-#include "archive_stream.h"
+#include "barc.h"
 #include "archive_package.h"
-#include "audio_mixer.h"
-#include "file_writer.h"
 #include "zipper.h"
-#include "frame_builder.h"
 
 int main(int argc, char **argv)
 {
@@ -112,8 +109,6 @@ int main(int argc, char **argv)
     int ret;
     time_t start_time = time(NULL);
     av_register_all();
-    avfilter_register_all();
-
     MagickWandGenesis();
 
     struct stat file_stat;
@@ -134,128 +129,32 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    struct archive_t* archive;
-    archive_open(&archive, out_width, out_height, input_path,
-                 css_preset, css_custom, manifest_supplemental);
+  struct archive_s* archive;
+  archive_alloc(&archive);
+  struct archive_config_s archive_config = { 0 };
+  archive_config.begin_offset = begin_offset;
+  archive_config.end_offset = end_offset;
+  archive_config.css_custom = css_custom;
+  archive_config.css_preset = css_preset;
+  archive_config.height = out_height;
+  archive_config.width = out_width;
+  archive_config.source_path = input_path;
+  archive_config.output_path = output_path;
+  archive_load_configuration(archive, &archive_config);
+  ret = archive_main(archive);
+  if (ret) {
+    printf("archive main returned %d", ret);
+  }
+  archive_free(archive);
 
-    struct file_writer_t* file_writer;
-    file_writer_alloc(&file_writer);
-    file_writer_open(file_writer, output_path, out_width, out_height);
+  time_t finish_time = time(NULL);
+  printf("Composition took %ld seconds\n", finish_time - start_time);
 
-    struct frame_builder_t* frame_builder;
-    frame_builder_alloc(&frame_builder);
+  char cwd[1024];
+  printf("%s\n", getcwd(cwd, sizeof(cwd)));
 
-    AVRational global_time_base = {1, 1000};
-    // todo: fix video_fps to coordinate with the file writer
-    double out_video_fps = 30;
-    double global_clock = 0.;
-    int64_t video_tick_time =
-    global_time_base.den / out_video_fps / global_time_base.num;
-    double audio_tick_time =
-    (double)file_writer->audio_ctx_out->frame_size *
-    (double) global_time_base.den /
-    (double)file_writer->audio_ctx_out->sample_rate;
-    double next_clock;
+  MagickWandTerminus();
 
-    int64_t archive_finish_time = archive_get_finish_clock_time(archive);
+  return(0);
 
-    double next_clock_times[2];
-    next_clock_times[0] = audio_tick_time;
-    next_clock_times[1] = video_tick_time;
-    char need_track[2];
-    need_track[0] = 1;
-    need_track[1] = 1;
-    char skip_frame;
-
-    if (begin_offset < 0) {
-        begin_offset = 0;
-    } else {
-        begin_offset *= global_time_base.den;
-        begin_offset /= global_time_base.num;
-    }
-
-    // truncate archive_finish_time if an end_offset has been set and it's less
-    // than the finish time declared in manifest
-    if (end_offset > 0) {
-        end_offset *= global_time_base.den;
-        end_offset /= global_time_base.num;
-        archive_finish_time = fmin(archive_finish_time, end_offset);
-    }
-
-    /* kick off the global clock and begin composing */
-    while (archive_finish_time >= global_clock) {
-        // TODO: not this. add seek support to audio mixer
-        skip_frame = (global_clock < begin_offset);
-
-        printf("{\"progress\": {\"complete\": %lld, \"total\": %lld }}\n",
-               (int64_t)global_clock, archive_finish_time);
-        if (skip_frame) {
-            printf("skipping frame\n");
-        } else {
-            printf("need_audio:%d need_video:%d\n", need_track[0], need_track[1]);
-        }
-
-        // process audio and video tracks, as needed
-        if (need_track[0]) {
-            tick_audio(file_writer, archive, global_clock, global_time_base,
-                       begin_offset, skip_frame);
-            next_clock_times[0] = global_clock + audio_tick_time;
-        }
-
-        if (need_track[1]) {
-            tick_video(file_writer, frame_builder, archive,
-                       global_clock, global_time_base,
-                       begin_offset, skip_frame);
-            next_clock_times[1] = global_clock + video_tick_time;
-        }
-
-        // calculate exactly when we need to wake up again.
-        // first, assume audio is next.
-        next_clock = next_clock_times[0];
-        if (fabs(next_clock - next_clock_times[1]) < 0.0001) {
-            // if we land on a common factor of both track intervals, floating
-            // point math might not make a perfect match between the two
-            // floating timestamps. grab both tracks on the next tick
-            need_track[1] = 1;
-            need_track[0] = 1;
-        } else if (next_clock > next_clock_times[1]) {
-            // otherwise, check to see if audio is indeed the next track
-            next_clock = next_clock_times[1];
-            need_track[1] = 1;
-            need_track[0] = 0;
-        } else {
-            // take only what we need
-            need_track[0] = 1;
-            need_track[1] = 0;
-        }
-
-        global_clock = next_clock;
-    }
-end:
-    if (ret < 0 && ret != AVERROR_EOF) {
-        fprintf(stderr, "Error occurred: %s\n", av_err2str(ret));
-        //exit(1);
-    }
-
-    printf("Waiting for frame builder queue to finish...");
-    // wait for all frames to write out before closing down.
-    frame_builder_wait(frame_builder, 0);
-    frame_builder_free(frame_builder);
-    printf("..done!\n");
-
-    MagickWandTerminus();
-
-    printf("Close file writer..");
-    file_writer_close(file_writer);
-    file_writer_free(file_writer);
-    printf("..done!\n");
-
-    time_t finish_time = time(NULL);
-
-    printf("Composition took %ld seconds\n", finish_time - start_time);
-
-    char cwd[1024];
-    printf("%s\n", getcwd(cwd, sizeof(cwd)));
-    
-    return(0);
 }

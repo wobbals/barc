@@ -5,27 +5,21 @@
 //  Created by Charley Robinson on 2/1/17.
 //
 
-extern "C" {
 #include "audio_mixer.h"
-#include "archive_stream.h"
 #include "archive_package.h"
 #include <libavutil/opt.h>
 #include <assert.h>
-}
-
-#include <vector>
 
 struct audio_mixer_t {
 
 };
 
 int audio_mixer_get_samples_for_streams
-(struct archive_stream_t** active_streams, int active_stream_count,
- int64_t clock_time, AVRational time_base,
- AVFrame* output_frame)
+(struct media_stream_s** active_streams, size_t active_stream_count,
+ double clock_time, AVFrame* output_frame)
 {
   int ret = 0;
-    printf("Will mix %d audio streams for ts %lld\n",
+    printf("Will mix %zu audio streams for ts %f\n",
            active_stream_count, clock_time);
 
     if (active_stream_count <= 0) {
@@ -42,12 +36,13 @@ int audio_mixer_get_samples_for_streams
 
     // third loop for each active stream
     for (int i = 0; i < active_stream_count; i++) {
-        ret = archive_stream_pop_audio_samples(active_streams[i],
+        ret = archive_stream_get_audio_samples(active_streams[i],
                                                output_frame->nb_samples,
                                                AV_SAMPLE_FMT_S16,
                                                output_frame->sample_rate,
                                                source_samples,
-                                               clock_time, time_base);
+                                               output_frame->channels,
+                                               clock_time);
         // don't copy in samples we haven't read
         if (ret != output_frame->nb_samples) {
             continue;
