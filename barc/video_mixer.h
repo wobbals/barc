@@ -15,10 +15,11 @@ struct video_mixer_s;
 
 void video_mixer_alloc(struct video_mixer_s** mixer_out);
 void video_mixer_free(struct video_mixer_s* mixer);
+
+/** @return 0 if stream added, 1 otherwise. */
 int video_mixer_add_stream(struct video_mixer_s* mixer,
                            struct media_stream_s* stream);
-int video_mixer_remove_stream(struct video_mixer_s* mixer,
-                              struct media_stream_s*);
+void video_mixer_clear_streams(struct video_mixer_s* mixer);
 int video_mixer_async_push_frame(struct video_mixer_s* mixer,
                                  struct file_writer_t* file_writer,
                                  double time_clock, int64_t pts);

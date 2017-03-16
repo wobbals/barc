@@ -120,6 +120,10 @@ int barc_tick(struct barc_s* barc) {
   }
 
   if (barc->need_track[1]) {
+    video_mixer_clear_streams(barc->video_mixer);
+    for (struct media_stream_s* stream : barc->streams) {
+      video_mixer_add_stream(barc->video_mixer, stream);
+    }
     vret = video_mixer_async_push_frame(barc->video_mixer,
                                         barc->file_writer,
                                         barc->global_clock,
@@ -172,9 +176,6 @@ static int tick_audio(struct barc_s* barc)
   output_frame->pts = barc->global_clock *
   barc->file_writer->audio_ctx_out->time_base.den;
   output_frame->sample_rate = barc->file_writer->audio_ctx_out->sample_rate;
-  // adjust to local time in audio scale units, without begin offset
-  int64_t local_source_ts = barc->global_clock *
-  barc->file_writer->audio_ctx_out->time_base.den;
 
   ret = av_frame_get_buffer(output_frame, 1);
   if (ret) {
@@ -200,7 +201,7 @@ static int tick_audio(struct barc_s* barc)
 
   // mix down samples using original time
   audio_mixer_get_samples_for_streams
-  (active_streams, stream_count, local_source_ts, output_frame);
+  (active_streams, stream_count, barc->global_clock, output_frame);
   free(active_streams);
 
   // send it to the audio filter graph

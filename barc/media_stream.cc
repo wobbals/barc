@@ -32,7 +32,7 @@ struct media_stream_s {
   // media sources
   media_stream_get_frame_cb* audio_read_cb;
   void* audio_read_arg;
-  media_stream_get_frame_cb* video_read_cb;
+  media_stream_get_video_frame_cb* video_read_cb;
   void* video_read_arg;
   archive_get_config_cb* audio_config_cb;
   void* audio_config_arg;
@@ -53,7 +53,7 @@ struct media_stream_s {
 
 #pragma mark - Media sources
 void media_stream_set_video_read(struct media_stream_s* stream,
-                                   media_stream_get_frame_cb* cb, void* p)
+                                 media_stream_get_video_frame_cb* cb, void* p)
 {
   stream->video_read_cb = cb;
   stream->video_read_arg = p;
@@ -102,15 +102,12 @@ int archive_stream_get_video_for_time(struct media_stream_s* stream,
                                       struct smart_frame_t** smart_frame,
                                       double clock_time)
 {
-  AVFrame* frame = NULL;
-  int ret = stream->video_read_cb(stream, frame, clock_time,
+  int ret = stream->video_read_cb(stream, smart_frame, clock_time,
                                   stream->video_read_arg);
-  if (!ret) {
-    printf("failed to get video frame for stream %s t=%f",
+  if (ret) {
+    printf("failed to get video frame for stream %s t=%f\n",
            stream->sz_name, clock_time);
-    return ret;
   }
-  smart_frame_create(smart_frame, frame);
   return ret;
 }
 

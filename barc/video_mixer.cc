@@ -125,6 +125,22 @@ static void frame_builder_cb(AVFrame* frame, void *p) {
   free(p);
 }
 
+int video_mixer_add_stream(struct video_mixer_s* mixer,
+                           struct media_stream_s* stream)
+{
+  auto index = std::find(mixer->streams.begin(), mixer->streams.end(), stream);
+  if (index == mixer->streams.end()) {
+    mixer->streams.push_back(stream);
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+void video_mixer_clear_streams(struct video_mixer_s* mixer) {
+  mixer->streams.clear();
+}
+
 int video_mixer_async_push_frame(struct video_mixer_s* mixer,
                                  struct file_writer_t* file_writer,
                                  double time_clock, int64_t pts)

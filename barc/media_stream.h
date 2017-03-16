@@ -29,8 +29,11 @@ struct media_stream_s;
 typedef int (media_stream_get_frame_cb)(struct media_stream_s* stream,
                                         AVFrame* frame, double time_clock,
                                         void* p);
+typedef int (media_stream_get_video_frame_cb)
+(struct media_stream_s* stream, struct smart_frame_t** frame_out,
+ double time_clock, void* p);
 void media_stream_set_video_read(struct media_stream_s* stream,
-                                 media_stream_get_frame_cb* cb, void* p);
+                                 media_stream_get_video_frame_cb* cb, void* p);
 void media_stream_set_audio_read(struct media_stream_s* stream,
                                  media_stream_get_frame_cb* cb, void* p);
 /**

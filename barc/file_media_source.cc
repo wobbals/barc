@@ -22,12 +22,19 @@ extern "C" {
 static const AVRational archive_manifest_timebase = { 1, 1000 };
 
 static void setup_media_stream(struct file_media_source_s* pthis);
+int video_read_callback(struct media_stream_s* stream,
+                        struct smart_frame_t** frame_out,
+                        double time_clock,
+                        void* p);
+int audio_read_callback(struct media_stream_s* stream,
+                        AVFrame* frame, double clock_time,
+                        void* p);
 
 struct file_media_source_s {
   const char* filename;
   // file source attributes
-  int64_t start_offset;
-  int64_t stop_offset;
+  double start_offset;
+  double stop_offset;
   int64_t duration;
 
   // read the same file twice to split the read functions
@@ -43,7 +50,7 @@ struct file_media_source_s {
   std::queue<struct smart_frame_t*> video_fifo;
   std::deque<AVFrame*> audio_frame_fifo;
   AVAudioFifo* audio_sample_fifo;
-  int64_t audio_last_pts;
+  double audio_last_pts;
 
   struct media_stream_s* media_stream;
 };
@@ -165,16 +172,20 @@ static int read_audio_frame(struct file_media_source_s* pthis)
 
     AVFrame* frame = av_frame_alloc();
     got_frame = 0;
-    ret = avcodec_decode_audio4(pthis->audio_context, frame,
-                                &got_frame, &packet);
-    if (ret < 0) {
-      av_log(NULL, AV_LOG_ERROR, "Error decoding audio: %s\n",
-             av_err2str(ret));
-    }
+    if (packet.stream_index == pthis->audio_stream_index) {
+      ret = avcodec_decode_audio4(pthis->audio_context, frame,
+                                  &got_frame, &packet);
+      if (ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Error decoding audio: %s\n",
+               av_err2str(ret));
+      }
 
-    if (got_frame) {
-      frame->pts = av_frame_get_best_effort_timestamp(frame);
-      pthis->audio_frame_fifo.push_back(frame);
+      if (got_frame) {
+        frame->pts = av_frame_get_best_effort_timestamp(frame);
+        pthis->audio_frame_fifo.push_back(frame);
+      }
+    } else {
+      av_frame_free(&frame);
     }
 
     av_packet_unref(&packet);
@@ -255,8 +266,7 @@ static int get_more_audio_samples(struct file_media_source_s* stream) {
  * extra data in a fifo. Sometimes this causes memory to run away, so instead
  * we just read the same input file twice.
  */
-static int read_video_frame(struct file_media_source_s* pthis,
-                            double clock_time)
+static int read_video_frame(struct file_media_source_s* pthis)
 {
   int ret, got_frame = 0;
   AVPacket packet = { 0 };
@@ -268,117 +278,30 @@ static int read_video_frame(struct file_media_source_s* pthis,
       return ret;
     }
 
-    AVFrame* frame = NULL;
+    AVFrame* frame = av_frame_alloc();
     got_frame = 0;
-    ret = avcodec_decode_video2(pthis->video_context, frame,
-                                &got_frame, &packet);
-    if (ret < 0) {
-      av_log(NULL, AV_LOG_ERROR, "Error decoding video: %s\n",
-             av_err2str(ret));
-    }
+    if (packet.stream_index == pthis->video_stream_index) {
+      ret = avcodec_decode_video2(pthis->video_context, frame,
+                                  &got_frame, &packet);
+      if (ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Error decoding video: %s\n",
+               av_err2str(ret));
+      }
 
-    if (got_frame) {
-      frame->pts = av_frame_get_best_effort_timestamp(frame);
-      smart_frame_t* smart_frame;
-      smart_frame_create(&smart_frame, frame);
-      pthis->video_fifo.push(smart_frame);
+      if (got_frame) {
+        frame->pts = av_frame_get_best_effort_timestamp(frame);
+        smart_frame_t* smart_frame;
+        smart_frame_create(&smart_frame, frame);
+        pthis->video_fifo.push(smart_frame);
+      }
+    } else {
+      av_frame_free(&frame);
     }
 
     av_packet_unref(&packet);
   }
 
   return !got_frame;
-}
-
-// just for posterity -- delete this
-int old_media_stream_audio_read(struct file_media_source_s* pthis,
-                                double clock_time,
-                                int64_t num_samples,
-                                int16_t** samples_out)
-{
-
-  int ret = 0;
-  int64_t local_ts = clock_time * pthis->audio_context->sample_rate;
-  int64_t requested_pts_interval =
-  num_samples / pthis->audio_context->sample_rate;
-  // TODO: This needs to be aware of the sample rate and format of the
-  // receiver
-  printf("pop %lld time units of audio samples (%lld total) for local ts %lld\n",
-         requested_pts_interval, num_samples, local_ts);
-  printf("audio fifo size before: %d\n",
-         av_audio_fifo_size(pthis->audio_sample_fifo));
-  while (num_samples > av_audio_fifo_size(pthis->audio_sample_fifo) && !ret)
-  {
-    ret = get_more_audio_samples(pthis);
-  }
-  printf("audio fifo size after: %d\n",
-         av_audio_fifo_size(pthis->audio_sample_fifo));
-
-  if (ret) {
-    return ret;
-  }
-
-  ret = av_audio_fifo_read(pthis->audio_sample_fifo,
-                           (void**)samples_out, (int)num_samples);
-  assert(ret == num_samples);
-  printf("pop %lld audio samples for local ts %lld %s\n",
-         num_samples, local_ts, media_stream_get_name(pthis->media_stream));
-  int64_t offset_ts = pthis->audio_last_pts + pthis->start_offset;
-  int clock_drift = (int) (local_ts - offset_ts);
-  printf("stream %s audio clock drift=%d local_ts=%lld offset_ts=%lld\n",
-         media_stream_get_name(pthis->media_stream), clock_drift, local_ts,
-         offset_ts);
-  if (clock_drift > 1000) {
-    // global clock is ahead of the stream. truncate some data (better yet,
-    // squish some samples together
-  } else if (clock_drift < -1000) {
-    // stream is ahead of the global clock. introduce some silence or
-    // spread samples apart
-  }
-  return ret;
-}
-
-void file_media_get_video_frame_callback() {
-/*
-  int ret = ensure_video_frame(stream);
-  if (ret) {
-    *smart_frame = NULL;
-    return ret;
-  }
-  assert(!stream->video_fifo.empty());
-  smart_frame_t* smart_front = stream->video_fifo.front();
-  AVFrame* front = smart_frame_get(smart_front);
-  struct stream_config_s stream_config = {0};
-  stream->video_config_cb(&stream_config, stream->video_config_arg);
-  AVRational video_time_base = {0};
-  video_time_base.num = 1;
-  video_time_base.den = stream_config.sample_rate;
-  int64_t local_time = av_rescale_q(clock_time, clock_time_base,
-                                    video_time_base);
-  int64_t offset_pts = front->pts + stream_config.start_offset;
-
-  // pop frames off the fifo until we're caught up
-  while (offset_pts < local_time) {
-    smart_frame_release(smart_front);
-    stream->video_fifo.pop();
-    if (ensure_video_frame(stream)) {
-      return -1;
-    }
-    smart_front = stream->video_fifo.front();
-    front = smart_frame_get(smart_front);
-    offset_pts = front->pts + stream_config.start_offset;
-  }
-
-  // after a certain point, we'll stop duplicating frames.
-  // TODO: make this configurable maybe?
-  if (local_time - offset_pts > 3000) {
-    *smart_frame = NULL;
-  } else {
-    *smart_frame = smart_front;
-  }
-
-  return (NULL == *smart_frame);
-*/
 }
 
 int file_media_source_open(struct file_media_source_s** source_out,
@@ -426,34 +349,34 @@ int file_media_source_open(struct file_media_source_s** source_out,
                      &pthis->audio_stream_index);
 
   assert(pthis->audio_context->sample_fmt = AV_SAMPLE_FMT_S16);
+  pthis->audio_context->request_sample_fmt = AV_SAMPLE_FMT_S16;
 
   media_stream_set_name(pthis->media_stream, stream_name);
   media_stream_set_class(pthis->media_stream, stream_class);
   setup_media_stream(pthis);
 
-  // TODO: Bring this back if possible -- it's still a good check
-//  AVStream* audio_stream =
-//  stream->audio_format_context->streams[this->audio_stream_index];
-//  ret = ensure_audio_frames(this);
-//  if (ret) {
-//    // don't worry about audio fifos. we'll silently fail in case there is
-//    // still meaningful data inside the conatiner.
-//  }
+  AVStream* audio_stream =
+  pthis->audio_format_context->streams[pthis->audio_stream_index];
+  ret = ensure_audio_frames(pthis);
+  if (ret) {
+    // don't worry about audio fifos. we'll silently fail in case there is
+    // still meaningful data inside the conatiner.
+  }
 
   // if there is good audio data later on, but it doesn't arrive at the
   // start offset time,
   // add silence to head of queue before the first audio packet plays out
-//  if (!ret && stream->audio_frame_fifo.front()->pts > 0) {
-//    AVFrame* frame = stream->audio_frame_fifo.front();
-//    int64_t num_samples =
-//    samples_per_pts(stream->audio_context->sample_rate,
-//                    frame->pts,
-//                    audio_stream->time_base);
-//    if (num_samples > 0) {
-//      // Silence should run from time 0 to the first real packet pts
-//      insert_silence(stream, num_samples, 0, frame->pts);
-//    }
-//  }
+  if (!ret && pthis->audio_frame_fifo.front()->pts > 0) {
+    AVFrame* frame = pthis->audio_frame_fifo.front();
+    int64_t num_samples =
+    samples_per_pts(pthis->audio_context->sample_rate,
+                    frame->pts,
+                    audio_stream->time_base);
+    if (num_samples > 0) {
+      // Silence should run from time 0 to the first real packet pts
+      insert_silence(pthis, num_samples, 0, frame->pts);
+    }
+  }
 
   return 0;
 }
@@ -481,11 +404,71 @@ struct media_stream_s* file_media_source_get_stream
   return source->media_stream;
 }
 
+#pragma mark - Internal utils
+static int ensure_video_frame(struct file_media_source_s* stream)
+{
+  int ret = 0;
+  if (stream->video_fifo.empty()) {
+    ret = read_video_frame(stream);
+  }
+  return ret;
+}
+
+static void setup_media_stream(struct file_media_source_s* pthis) {
+  media_stream_set_video_read(pthis->media_stream, video_read_callback, pthis);
+  media_stream_set_audio_read(pthis->media_stream, audio_read_callback, pthis);
+}
+
+// convert frame time to global time, including local offset
+static double video_pts_to_global_time(struct file_media_source_s* pthis,
+                                       AVFrame* frame)
+{
+  double result = ((double)frame->pts) / (double)
+  pthis->video_format_context->streams[pthis->video_stream_index]->
+  time_base.den;
+  result += pthis->start_offset;
+  return result;
+}
+
+#pragma mark - media_stream callbacks 
+
 int video_read_callback(struct media_stream_s* stream,
-                        AVFrame* frame, double time_clock,
+                        struct smart_frame_t** frame_out,
+                        double time_clock,
                         void* p)
 {
-  return 0;
+  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  int ret = ensure_video_frame(pthis);
+  if (ret) {
+    *frame_out = NULL;
+    return ret;
+  }
+  assert(!pthis->video_fifo.empty());
+  smart_frame_t* smart_front = pthis->video_fifo.front();
+  AVFrame* front = smart_frame_get(smart_front);
+  double offset_frame_time = video_pts_to_global_time(pthis, front);
+
+  // pop frames off the fifo until we're caught up
+  while (offset_frame_time < time_clock) {
+    smart_frame_release(smart_front);
+    pthis->video_fifo.pop();
+    if (ensure_video_frame(pthis)) {
+      return -1;
+    }
+    smart_front = pthis->video_fifo.front();
+    front = smart_frame_get(smart_front);
+    offset_frame_time = video_pts_to_global_time(pthis, front);
+  }
+
+  // after a certain point, we'll stop duplicating frames.
+  // TODO: make this configurable maybe?
+  if (time_clock - offset_frame_time > 3000) {
+    *frame_out = NULL;
+  } else {
+    *frame_out = smart_front;
+  }
+
+  return (NULL == *frame_out);
 }
 
 int audio_read_callback(struct media_stream_s* stream,
@@ -494,13 +477,13 @@ int audio_read_callback(struct media_stream_s* stream,
 {
   struct file_media_source_s* pthis = (struct file_media_source_s*)p;
   int ret = 0;
-  int64_t local_ts = clock_time * pthis->audio_context->sample_rate;
-  int64_t requested_pts_interval =
-  frame->nb_samples / pthis->audio_context->sample_rate;
+  double local_pts = clock_time * pthis->audio_context->sample_rate;
+  double requested_pts_interval = (double) pthis->audio_context->sample_rate /
+  frame->nb_samples;
   // TODO: This needs to be aware of the sample rate and format of the
   // receiver
-  printf("pop %lld time units of audio samples (%d total) for local ts %lld\n",
-         requested_pts_interval, frame->nb_samples, local_ts);
+  printf("pop %f time units of audio samples (%d total) for local pts %f\n",
+         requested_pts_interval, frame->nb_samples, local_pts);
   printf("audio fifo size before: %d\n",
          av_audio_fifo_size(pthis->audio_sample_fifo));
   while (frame->nb_samples > av_audio_fifo_size(pthis->audio_sample_fifo) &&
@@ -518,13 +501,14 @@ int audio_read_callback(struct media_stream_s* stream,
   ret = av_audio_fifo_read(pthis->audio_sample_fifo, (void**)frame->data,
                            frame->nb_samples);
   assert(ret == frame->nb_samples);
-  printf("pop %d audio samples for local ts %lld %s\n",
-         frame->nb_samples, local_ts,
+  printf("pop %d audio samples for local ts %f %s\n",
+         frame->nb_samples, local_pts,
          media_stream_get_name(pthis->media_stream));
-  int64_t offset_ts = pthis->audio_last_pts + pthis->start_offset;
-  int clock_drift = (int) (local_ts - offset_ts);
-  printf("stream %s audio clock drift=%d local_ts=%lld offset_ts=%lld\n",
-         media_stream_get_name(pthis->media_stream), clock_drift, local_ts,
+  double offset_ts = pthis->audio_last_pts +
+  (pthis->start_offset * pthis->audio_context->time_base.den);
+  double clock_drift = (double) (local_pts - offset_ts);
+  printf("stream %s audio clock drift=%d local_ts=%f offset_ts=%f\n",
+         media_stream_get_name(pthis->media_stream), clock_drift, local_pts,
          offset_ts);
   if (clock_drift > 1000) {
     // global clock is ahead of the stream. truncate some data (better yet,
@@ -534,9 +518,4 @@ int audio_read_callback(struct media_stream_s* stream,
     // spread samples apart
   }
   return ret;
-}
-
-static void setup_media_stream(struct file_media_source_s* pthis) {
-  media_stream_set_video_read(pthis->media_stream, video_read_callback, pthis);
-  media_stream_set_audio_read(pthis->media_stream, audio_read_callback, pthis);
 }
