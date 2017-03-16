@@ -48,6 +48,7 @@ int archive_load_configuration(struct archive_s* archive,
   barc_config.out_height = config->height;
   barc_config.css_custom = config->css_custom;
   barc_config.css_preset = config->css_preset;
+  barc_config.output_path = config->output_path;
   archive->begin_offset = config->begin_offset;
   archive->end_offset = config->end_offset;
   int ret = barc_read_configuration(archive->barc, &barc_config);
@@ -208,7 +209,7 @@ static int setup_streams_for_tick(struct archive_s* archive, double clock_time)
   for (struct file_media_source_s* stream : archive->sources) {
     struct barc_source_s barc_source;
     barc_source.media_stream = file_media_source_get_stream(stream);
-    
+    // This is not implemented yet, if you haven't just figured that out. :O
     if (file_stream_is_active_at_time(stream, clock_time)) {
       barc_add_source(archive->barc, &barc_source);
     } else {

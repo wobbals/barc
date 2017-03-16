@@ -19,12 +19,9 @@ av_make_error_string((char*)__builtin_alloca(AV_ERROR_MAX_STRING_SIZE), \
 AV_ERROR_MAX_STRING_SIZE, errnum)
 #endif
 
-#include <queue>
-#include <deque>
+
 
 static int ensure_audio_frames(struct media_stream_s* stream);
-static inline int64_t samples_per_pts(int sample_rate, int64_t pts,
-                                      AVRational time_base);
 static inline float pts_per_sample(float sample_rate, float num_samples,
                                    AVRational time_base);
 static void insert_silence(struct media_stream_s* stream,
@@ -41,10 +38,6 @@ struct media_stream_s {
   void* audio_config_arg;
   archive_get_config_cb* video_config_cb;
   void* video_config_arg;
-
-    std::deque<AVFrame*> audio_frame_fifo;
-    AVAudioFifo* audio_sample_fifo;
-    int64_t audio_last_pts;
 
   const char* sz_name;
   const char* sz_class;
@@ -88,26 +81,17 @@ void archive_stream_set_video_config_callback
 }
 
 # pragma mark - memory lifecycle
+
 int media_stream_alloc(struct media_stream_s** stream_out)
 {
   struct media_stream_s* stream =
   (struct media_stream_s*) calloc(1, sizeof(struct media_stream_s));
-  stream->audio_frame_fifo = std::deque<AVFrame*>();
-  // should this be dynamically sized?
-  stream->audio_sample_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_S16, 1, 4098);
   *stream_out = stream;
   return 0;
 }
 
-
 int media_stream_free(struct media_stream_s* stream)
 {
-    while (!stream->audio_frame_fifo.empty()) {
-        AVFrame* frame = stream->audio_frame_fifo.front();
-        stream->audio_frame_fifo.pop_front();
-        av_frame_free(&frame);
-    }
-    av_audio_fifo_free(stream->audio_sample_fifo);
     free(stream);
     return 0;
 }
@@ -128,29 +112,6 @@ int archive_stream_get_video_for_time(struct media_stream_s* stream,
   }
   smart_frame_create(smart_frame, frame);
   return ret;
-}
-
-static void insert_silence(struct media_stream_s* stream,
-                           int64_t num_samples,
-                           int64_t from_pts, int64_t to_pts)
-{
-    AVFrame* silence = av_frame_alloc();
-  struct stream_config_s stream_config = {0};
-  stream->audio_config_cb(&stream_config, stream->audio_config_arg);
-  silence->sample_rate = stream_config.sample_rate;
-    silence->nb_samples = (int)num_samples;
-    silence->format = stream_config.sample_format;
-    silence->channel_layout = stream_config.channel_layout;
-    av_frame_get_buffer(silence, 1);
-    for (int i = 0; i < silence->channels; i++) {
-        memset(silence->data[i], 0,
-               silence->nb_samples *
-               av_get_bytes_per_sample((enum AVSampleFormat)silence->format));
-    }
-    silence->pts = from_pts;
-    silence->pkt_duration = to_pts - from_pts;
-
-    stream->audio_frame_fifo.push_front(silence);
 }
 
 int archive_stream_get_audio_samples(struct media_stream_s* stream,
@@ -179,16 +140,6 @@ int archive_stream_get_audio_samples(struct media_stream_s* stream,
   }
 
   return ret;
-}
-
-static inline int64_t samples_per_pts(int sample_rate, int64_t pts,
-                                      AVRational time_base)
-{
-    // (duration * time_base) * (sample_rate) == sample_count
-    // (20 / 1000) * 48000 == 960
-    return (float)((float)pts * (float)time_base.num) /
-    (float)time_base.den * (float)sample_rate;
-    //return av_rescale_q(pts, time_base, { sample_rate, 1});
 }
 
 static inline float pts_per_sample(float sample_rate, float num_samples,

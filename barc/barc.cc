@@ -22,6 +22,7 @@ struct barc_s {
   size_t out_height;
   struct file_writer_t* file_writer;
   struct video_mixer_s* video_mixer;
+  const char* output_path;
 
   char need_track[2];
   double global_clock;
@@ -35,6 +36,7 @@ struct barc_s {
 void barc_alloc(struct barc_s** barc_out) {
   struct barc_s* barc = (struct barc_s*)calloc(1, sizeof(struct barc_s));
   barc->streams = std::vector<struct media_stream_s*>();
+  video_mixer_alloc(&barc->video_mixer);
   *barc_out = barc;
 }
 
@@ -55,6 +57,15 @@ int barc_read_configuration(struct barc_s* barc, struct barc_config_s* config)
   video_mixer_set_css_preset(barc->video_mixer, config->css_preset);
   video_mixer_set_css_custom(barc->video_mixer, config->css_custom);
   return 0;
+}
+
+int barc_open_outfile(struct barc_s* barc) {
+  file_writer_alloc(&barc->file_writer);
+  int ret = file_writer_open(barc->file_writer,
+                             barc->output_path,
+                             (int) barc->out_width,
+                             (int) barc->out_height);
+  return ret;
 }
 
 int barc_close_outfile(struct barc_s* barc) {
@@ -121,23 +132,23 @@ static int tick_audio(struct barc_s* barc)
   return ret;
 }
 
-void tick(struct barc_s* barc) {
+int barc_tick(struct barc_s* barc) {
   printf("barc.tick: need_audio:%d need_video:%d\n",
          barc->need_track[0], barc->need_track[1]);
-
+  int aret, vret = 0;
   // process audio and video tracks, as needed
   if (barc->need_track[0]) {
     // TODO: create and delegate audio mixdown task
-    tick_audio(barc);
+    aret = tick_audio(barc);
     barc->next_clock_times[0] = barc->global_clock + barc->audio_tick_time;
   }
 
   if (barc->need_track[1]) {
-    video_mixer_async_push_frame(barc->video_mixer,
-                                 barc->file_writer,
-                                 barc->global_clock,
-                                 barc->global_clock * 1000 //TODO: get this from encoder format context
-                                 );
+    vret = video_mixer_async_push_frame(barc->video_mixer,
+                                        barc->file_writer,
+                                        barc->global_clock,
+                                        barc->global_clock * 1000 //TODO: get this from encoder format context
+                                        );
     barc->next_clock_times[1] = barc->global_clock + barc->video_tick_time;
   }
 
@@ -162,4 +173,10 @@ void tick(struct barc_s* barc) {
   }
 
   barc->global_clock = next_clock;
+
+  return aret & vret;
+}
+
+double barc_get_current_clock(struct barc_s* barc) {
+  return barc->global_clock;
 }

@@ -19,6 +19,7 @@ struct barc_config_s {
   size_t out_height;
   const char* css_preset;
   const char* css_custom;
+  const char* output_path;
 };
 
 struct barc_source_s {

@@ -18,10 +18,7 @@ int file_media_source_open(struct file_media_source_s** source_out,
                            double start_offset, double stop_offset,
                            const char* stream_name,
                            const char* stream_class);
-
-int file_media_source_alloc(struct file_media_source_s** media_source_out);
 void file_media_source_free(struct file_media_source_s*);
-
 int file_stream_is_active_at_time(struct file_media_source_s* media_source,
                                   double clock_time);
 int64_t file_stream_get_stop_offset(struct file_media_source_s* media_source);
