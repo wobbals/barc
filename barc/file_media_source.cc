@@ -230,11 +230,13 @@ static int audio_frame_fifo_pop(struct file_media_source_s* pthis) {
   AVFrame* new_frame = pthis->audio_frame_fifo.front();
   // insert silence if we detect a lapse in audio continuity
   if ((new_frame->pts - old_frame->pts) > old_frame->pkt_duration) {
+    AVStream* audio_stream =
+    pthis->audio_format_context->streams[pthis->audio_stream_index];
     int64_t num_samples =
     samples_per_pts(pthis->audio_context->sample_rate,
                     new_frame->pts - old_frame->pts -
                     old_frame->pkt_duration,
-                    pthis->audio_context->time_base);
+                    audio_stream->time_base);
     if (num_samples > 0) {
       printf("data gap detected at %lld. generate %lld silent samples\n",
              old_frame->pts, num_samples);
