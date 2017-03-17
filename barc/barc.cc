@@ -108,8 +108,8 @@ int barc_remove_source(struct barc_s* barc, struct barc_source_s* source) {
 }
 
 int barc_tick(struct barc_s* barc) {
-  printf("barc.tick: need_audio:%d need_video:%d\n",
-         barc->need_track[0], barc->need_track[1]);
+  printf("barc.tick: global_clock:%f need_audio:%d need_video:%d\n",
+         barc->global_clock, barc->need_track[0], barc->need_track[1]);
   int aret = 0;
   int vret = 0;
   // process audio and video tracks, as needed

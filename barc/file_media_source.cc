@@ -18,6 +18,14 @@ extern "C" {
 #include <deque>
 #include <queue>
 
+// Workaround C++ issue with ffmpeg macro
+#ifndef __clang__
+#undef av_err2str
+#define av_err2str(errnum) \
+av_make_error_string((char*)__builtin_alloca(AV_ERROR_MAX_STRING_SIZE), \
+AV_ERROR_MAX_STRING_SIZE, errnum)
+#endif
+
 // we know this to be true from documentation, it's not discoverable :-(
 static const AVRational archive_manifest_timebase = { 1, 1000 };
 
