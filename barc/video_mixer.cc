@@ -12,7 +12,7 @@ extern "C" {
 }
 
 #include <vector>
-
+#include <algorithm>
 #include "Geometry.h"
 
 struct video_mixer_s {

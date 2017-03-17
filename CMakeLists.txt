@@ -78,5 +78,8 @@ include_directories (
   ${gtest_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/barc
 )
+
 cxx_executable(test_smart_avframe test gtest_main test/test_smart_avframe.cc)
 add_test(test_smart_avframe test_smart_avframe)
+cxx_executable(test_file_writer test gtest_main test/test_file_writer.cc)
+add_test(test_file_writer test_file_writer)

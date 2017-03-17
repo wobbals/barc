@@ -682,6 +682,7 @@
 		D48351381E77A93700EF935A /* barc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = barc.h; sourceTree = "<group>"; };
 		D483513A1E787A4800EF935A /* video_mixer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = video_mixer.cc; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		D483513B1E787A4800EF935A /* video_mixer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = video_mixer.h; sourceTree = "<group>"; };
+		D48E22411E7B8A9C00E5F39C /* test_file_writer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_file_writer.cc; path = test/test_file_writer.cc; sourceTree = "<group>"; };
 		D49D2CCB1E40471C005096BF /* libopus.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libopus.a; path = ../../../../usr/local/Cellar/opus/1.1.4/lib/libopus.a; sourceTree = "<group>"; };
 		D49D2CCD1E4049C6005096BF /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = System/Library/Frameworks/VideoToolbox.framework; sourceTree = SDKROOT; };
 		D49D2CCF1E4049D5005096BF /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -1450,6 +1451,7 @@
 			isa = PBXGroup;
 			children = (
 				D43115EA1E6B5B4A0043763A /* test_smart_avframe.cc */,
+				D48E22411E7B8A9C00E5F39C /* test_file_writer.cc */,
 			);
 			name = test;
 			sourceTree = "<group>";

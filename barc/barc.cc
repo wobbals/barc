@@ -13,8 +13,16 @@ extern "C" {
 #include "video_mixer.h"
 #include "audio_mixer.h"
 }
-
+#include <algorithm>
 #include <vector>
+
+// Workaround C++ issue with ffmpeg macro
+#ifndef __clang__
+#undef av_err2str
+#define av_err2str(errnum) \
+av_make_error_string((char*)__builtin_alloca(AV_ERROR_MAX_STRING_SIZE), \
+AV_ERROR_MAX_STRING_SIZE, errnum)
+#endif
 
 struct barc_s {
   std::vector<struct media_stream_s*> streams;
