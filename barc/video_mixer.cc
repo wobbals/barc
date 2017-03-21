@@ -63,6 +63,8 @@ void video_mixer_alloc(struct video_mixer_s** mixer_out) {
 
 static int populate_stream_coords(struct video_mixer_s* pthis)
 {
+  std::sort(pthis->streams.begin(), pthis->streams.end(), z_index_sort);
+
   // Regenerate stream list every tick to allow on-the-fly layout changes
   std::vector<ArchiveStreamInfo> stream_info;
   for (struct media_stream_s* stream : pthis->streams) {
@@ -70,7 +72,7 @@ static int populate_stream_coords(struct video_mixer_s* pthis)
                                             media_stream_get_class(stream),
                                             true));
   }
-
+  
   // switch between bestfit and horizontal presentation if in auto layout mode
   if (pthis->auto_layout) {
     do_auto_layout(pthis, stream_info);
