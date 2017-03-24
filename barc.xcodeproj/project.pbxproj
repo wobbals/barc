@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D40176261E84554300864100 /* file_audio_source.cc in Sources */ = {isa = PBXBuildFile; fileRef = D40176241E84554300864100 /* file_audio_source.cc */; };
 		D401DF481E4C1F7200E26720 /* libjansson.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D401DF471E4C1F7200E26720 /* libjansson.4.dylib */; };
 		D442C74F1E5E7F1800ABFEC4 /* archive_options.c in Sources */ = {isa = PBXBuildFile; fileRef = D442C74D1E5E7F1800ABFEC4 /* archive_options.c */; };
 		D470188B1E3BC5130040257B /* background.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D47018131E3BC5130040257B /* background.cpp */; };
@@ -182,6 +183,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D40176241E84554300864100 /* file_audio_source.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = file_audio_source.cc; sourceTree = "<group>"; };
+		D40176251E84554300864100 /* file_audio_source.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = file_audio_source.h; sourceTree = "<group>"; };
 		D401DF471E4C1F7200E26720 /* libjansson.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libjansson.4.dylib; path = ../../../../usr/local/Cellar/jansson/2.9/lib/libjansson.4.dylib; sourceTree = "<group>"; };
 		D401DF491E4D121A00E26720 /* libzip.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libzip.2.dylib; path = ../../../../usr/local/Cellar/libzip/0.11.1/lib/libzip.2.dylib; sourceTree = "<group>"; };
 		D43114511E60F54F0043763A /* object_fit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = object_fit.h; sourceTree = "<group>"; };
@@ -1648,6 +1651,8 @@
 				D47DB3BC1E3A9C920052418C /* media_stream.h */,
 				D4F5FAB01E4253BA00328734 /* audio_mixer.c */,
 				D4F5FAB11E4253BA00328734 /* audio_mixer.h */,
+				D40176241E84554300864100 /* file_audio_source.cc */,
+				D40176251E84554300864100 /* file_audio_source.h */,
 				D48351271E77925A00EF935A /* file_media_source.cc */,
 				D48351281E77925A00EF935A /* file_media_source.h */,
 				D4EEBD521E4D289B0004B76A /* file_writer.c */,
@@ -1871,6 +1876,7 @@
 				D47018901E3BC5130040257B /* document.cpp in Sources */,
 				D4EEBD5A1E4E52220004B76A /* frame_builder.cc in Sources */,
 				D47018A71E3BC5130040257B /* char_ref.c in Sources */,
+				D40176261E84554300864100 /* file_audio_source.cc in Sources */,
 				D483514C1E7A083800EF935A /* main.c in Sources */,
 				D47018A01E3BC5130040257B /* el_table.cpp in Sources */,
 				D47018911E3BC5130040257B /* el_anchor.cpp in Sources */,

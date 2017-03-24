@@ -131,10 +131,11 @@ int barc_tick(struct barc_s* barc) {
     for (struct media_stream_s* stream : barc->streams) {
       video_mixer_add_stream(barc->video_mixer, stream);
     }
+    //TODO: get the millisecond time base from encoder format context
     vret = video_mixer_async_push_frame(barc->video_mixer,
                                         barc->file_writer,
                                         barc->global_clock,
-                                        barc->global_clock * 1000 //TODO: get this from encoder format context
+                                        barc->global_clock * 1000
                                         );
     barc->next_clock_times[1] = barc->global_clock + barc->video_tick_time;
   }

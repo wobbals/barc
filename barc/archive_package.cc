@@ -77,6 +77,7 @@ int archive_main(struct archive_s* archive) {
   }
 
   double global_clock = 0;
+
   while (!ret && end_time > global_clock) {
     setup_streams_for_tick(archive, global_clock);
     ret = barc_tick(archive->barc);
@@ -158,7 +159,7 @@ static int open_manifest_item(struct file_media_source_s** source_out,
     }
 
     ret = file_media_source_open(source_out, filename_str, start, stop,
-                              stream_id, stream_class);
+                                 stream_id, stream_class);
     printf("parsed archive stream %s\n", filename_str);
     return ret;
 }

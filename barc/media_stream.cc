@@ -19,8 +19,6 @@ av_make_error_string((char*)__builtin_alloca(AV_ERROR_MAX_STRING_SIZE), \
 AV_ERROR_MAX_STRING_SIZE, errnum)
 #endif
 
-
-
 static int ensure_audio_frames(struct media_stream_s* stream);
 static inline float pts_per_sample(float sample_rate, float num_samples,
                                    AVRational time_base);
@@ -135,9 +133,9 @@ int archive_stream_get_audio_samples(struct media_stream_s* stream,
     return ret;
   }
   ret = stream->audio_read_cb(stream, frame, clock_time,
-                                  stream->audio_read_arg);
-  if (!ret) {
-    printf("failed to get video frame for stream %s t=%f",
+                              stream->audio_read_arg);
+  if (ret != num_samples) {
+    printf("failed to get audio frame for stream %s t=%f\n",
            stream->sz_name, clock_time);
     return ret;
   }
