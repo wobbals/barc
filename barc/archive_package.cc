@@ -73,7 +73,8 @@ int archive_main(struct archive_s* archive) {
 
   double end_time = archive_get_finish_clock_time(archive);
   if (archive->end_offset > 0) {
-    end_time = fmin(end_time, archive->end_offset);
+    double duration = archive->end_offset - archive->begin_offset;
+    end_time = fmin(end_time, duration);
   }
 
   double global_clock = 0;
@@ -201,9 +202,13 @@ static int archive_open(struct archive_s* archive)
 
     json_array_foreach(files, index, value) {
         ret = open_manifest_item(&file_source, value);
-        if (!ret) {
-            archive->sources.push_back(file_source);
-        }
+      if (ret) {
+        continue;
+      }
+      if (archive->begin_offset > 0) {
+        file_media_source_seek(file_source, archive->begin_offset);
+      }
+      archive->sources.push_back(file_source);
     }
 
     return 0;

@@ -67,22 +67,27 @@ int file_audio_source_load_config(struct file_audio_source_s* pthis,
 int file_audio_source_seek(struct file_audio_source_s* pthis, double to_time)
 {
   // stream timebase or codec time base?
-  int64_t to_time_base = to_time *
-  pthis->format_context->streams[pthis->stream_index]->time_base.den;
+  AVRational format_time_base =
+  pthis->format_context->streams[pthis->stream_index]->time_base;
 
   int ret;
-  // TODO: why this not working eh?
-  ret = av_seek_frame(pthis->format_context, pthis->stream_index,
-                          to_time_base, 0);
-//  ret = avformat_seek_file(pthis->format_context, pthis->stream_index,
-//                           to_time_base, to_time_base, to_time_base,
-//                           AVSEEK_FLAG_ANY);
+  // avformat_seek methods don't work, so instead start the stream from the top
+  // and pop frames off the stream until we're caught up
+  ret = avformat_flush(pthis->format_context);
+  ret = av_seek_frame(pthis->format_context, pthis->stream_index, 0, 0);
+  av_audio_fifo_reset(pthis->audio_sample_fifo);
+  pthis->sample_head_time = 0;
+  AVPacket pkt = { 0 };
+  // this is a destructive loop: don't call this method if you need to read
+  // every packet from the file!
+  while (!ret && pthis->sample_head_time < to_time) {
+    av_read_frame(pthis->format_context, &pkt);
+    pthis->sample_head_time = (double)pkt.pts / format_time_base.den;
+    av_packet_unref(&pkt);
+  }
   if (ret) {
     return ret;
   }
-
-  av_audio_fifo_reset(pthis->audio_sample_fifo);
-  pthis->sample_head_time = to_time;
 
   return ret;
 }
@@ -258,7 +263,7 @@ static void check_frame_sync(struct file_audio_source_s* pthis,
   pthis->codec_context->time_base.den;
   AVStream* this_stream = pthis->format_context->streams[pthis->stream_index];
   double frame_time = (double)frame->pts / this_stream->time_base.den;
-#define FRAME_SYNC_THRESHOLD 0.25 // what shoud this be?
+#define FRAME_SYNC_THRESHOLD 0.25 // what value shoud this be?
   // if there's a difference between the time at the end of the sample fifo
   // and the PTS of this frame, insert silence to the sample fifo equal to
   // that difference. this mostly is expected to happen if we are parked over

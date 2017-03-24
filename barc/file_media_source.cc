@@ -36,7 +36,7 @@ int video_read_callback(struct media_stream_s* stream,
 int audio_read_callback(struct media_stream_s* stream,
                         AVFrame* frame, double clock_time,
                         void* p);
-
+  
 struct file_media_source_s {
   const char* filename;
   // file source attributes
@@ -50,7 +50,7 @@ struct file_media_source_s {
   AVCodecContext* video_context;
   // indices for dereferencing contexts
   int video_stream_index;
-
+  double video_ts_offset;
   struct file_audio_source_s* audio_source;
 
   std::queue<struct smart_frame_t*> video_fifo;
@@ -81,13 +81,15 @@ void file_media_source_free(struct file_media_source_s* pthis) {
   free(pthis);
 }
 
-int file_media_source_seek(struct file_media_source_s* media_source,
+int file_media_source_seek(struct file_media_source_s* pthis,
                            double to_time)
 {
   // seek audio source
+  file_audio_source_seek(pthis->audio_source, to_time);
   // seek video source
-  assert(false); // this is not implemented yet.
-  return -1;
+  // TODO: video processing should be in a separate class
+  pthis->video_ts_offset = to_time;
+  return 0;
 }
 
 #pragma mark - Container setup
@@ -232,7 +234,9 @@ int file_stream_is_active_at_time(struct file_media_source_s* pthis,
 
 double file_stream_get_stop_offset(struct file_media_source_s* pthis)
 {
-  return pthis->stop_offset;
+  // don't forget to update this when seek method is called and video has it's
+  // own class!
+  return pthis->stop_offset - pthis->video_ts_offset;
 }
 
 struct media_stream_s* file_media_source_get_stream
@@ -275,6 +279,7 @@ int video_read_callback(struct media_stream_s* stream,
                         void* p)
 {
   struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  time_clock += pthis->video_ts_offset;
   int ret = ensure_video_frame(pthis);
   if (ret) {
     *frame_out = NULL;
@@ -315,14 +320,6 @@ int audio_read_callback(struct media_stream_s* stream,
   struct file_media_source_s* pthis = (struct file_media_source_s*)p;
   int ret = 0;
 
-  double offset_time = clock_time - pthis->start_offset;
-  double source_time = file_audio_source_get_pos(pthis->audio_source);
-  double frame_duration = (double)frame->nb_samples / frame->sample_rate;
-  if (fabs(offset_time - source_time) > frame_duration) {
-    // head frame PTS is off by more than a single frame length, seek the file
-    // this should only happen once, at the start of the stream.
-    file_audio_source_seek(pthis->audio_source, offset_time);
-  }
   assert(frame->format == AV_SAMPLE_FMT_S16);
   ret = file_audio_source_get_next(pthis->audio_source,
                                    frame->nb_samples,
