@@ -9,4 +9,5 @@ before_install:
 - docker build -t barc-worker .
 
 script:
-- docker run barc-worker /bin/bash -c "cd ../build && cmake .. && make test"
+- docker run barc-worker /bin/bash -c "cd ../build && cmake .. && make && \
+make test"
