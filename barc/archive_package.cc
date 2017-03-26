@@ -5,36 +5,112 @@
 //  Created by Charley Robinson on 1/26/17.
 //
 
+extern "C" {
+#include <unistd.h>
+#include <glob.h>
+#include <jansson.h>
+
+#include "archive_package.h"
+#include "file_media_source.h"
+#include "barc.h"
+}
+
 #include <vector>
 
 #include "Geometry.h"
 
-extern "C" {
-#include "archive_package.h"
-#include "archive_stream.h"
-#include <jansson.h>
-#include <glob.h>
-#include <unistd.h>
-}
-
-struct archive_t {
-    FILE* source_file;
-    std::vector<struct archive_stream_t*> streams;
-    ArchiveLayout* layout;
-    char auto_layout;
-    int width;
-    int height;
+struct archive_s {
+  struct barc_s* barc;
+  std::vector<struct file_media_source_s*> sources;
+  const char* source_path;
+  double begin_offset;
+  double end_offset;
 };
 
-/* globerr --- print error message for glob() */
+static int archive_open(struct archive_s* archive);
+static double archive_get_finish_clock_time(struct archive_s* archive);
+static int setup_streams_for_tick(struct archive_s* archive, double clock_time);
 
+void archive_alloc(struct archive_s** archive_out) {
+  struct archive_s* archive = (struct archive_s*)
+  calloc(1, sizeof(struct archive_s));
+  barc_alloc(&archive->barc);
+  *archive_out = archive;
+}
+
+void archive_free(struct archive_s* archive) {
+  barc_free(archive->barc);
+  free(archive);
+}
+
+int archive_load_configuration(struct archive_s* archive,
+                               struct archive_config_s* config) {
+  struct barc_config_s barc_config;
+  barc_config.out_width = config->width;
+  barc_config.out_height = config->height;
+  barc_config.css_custom = config->css_custom;
+  barc_config.css_preset = config->css_preset;
+  barc_config.output_path = config->output_path;
+  barc_config.video_framerate = 30; // TODO want this in a config file maybe?
+  archive->source_path = config->source_path;
+  archive->begin_offset = config->begin_offset;
+  archive->end_offset = config->end_offset;
+  int ret = barc_read_configuration(archive->barc, &barc_config);
+  return ret;
+}
+
+int archive_main(struct archive_s* archive) {
+  int ret = archive_open(archive);
+  if (ret) {
+    printf("failed to open archive %s", archive->source_path);
+    return ret;
+  }
+  barc_open_outfile(archive->barc);
+  if (ret) {
+    printf("failed to open archive outfile");
+    return ret;
+  }
+
+  double end_time = archive_get_finish_clock_time(archive);
+  if (archive->end_offset > 0) {
+    double duration = archive->end_offset - archive->begin_offset;
+    end_time = fmin(end_time, duration);
+  }
+
+  double global_clock = 0;
+
+  while (!ret && end_time > global_clock) {
+    setup_streams_for_tick(archive, global_clock);
+    ret = barc_tick(archive->barc);
+    global_clock = barc_get_current_clock(archive->barc);
+    printf("{\"progress\": {\"complete\": %f, \"total\": %f }}\n",
+           global_clock * 1000, end_time * 1000);
+  }
+
+  if (ret) {
+    printf("problem in barc main loop. closing outfile and aborting. ret=%d",
+           ret);
+    // don't let this condition stop us from closing the file.
+  }
+  int fret = barc_close_outfile(archive->barc);
+  if (fret) {
+    printf("failed to finalize container (ret %d", fret);
+  }
+  return ret & fret;
+}
+
+/* globerr --- print error message for glob() */
 int globerr(const char *path, int eerrno)
 {
     printf("%s: %s\n", path, strerror(eerrno));
     return 0;	/* let glob() keep going */
 }
 
-int open_manifest_item(struct archive_stream_t** stream, json_t* item) {
+// we know from documentation these units are in millis
+#define MANIFEST_TIME_BASE 1000
+static int open_manifest_item(struct file_media_source_s** source_out,
+                              json_t* item)
+{
     int ret;
     json_t* node = json_object_get(item, "filename");
     if (!json_is_string(node)) {
@@ -48,14 +124,14 @@ int open_manifest_item(struct archive_stream_t** stream, json_t* item) {
         printf("unable to parse start time!\n");
         return -1;
     }
-    json_int_t start = json_integer_value(node);
+    double start = (double) json_integer_value(node) / MANIFEST_TIME_BASE;
 
     node = json_object_get(item, "stopTimeOffset");
     if (!json_is_integer(node)) {
         printf("unable to parse stop time!\n");
         return -1;
     }
-    json_int_t stop = json_integer_value(node);
+    double stop = (double) json_integer_value(node) / MANIFEST_TIME_BASE;
 
     node = json_object_get(item, "streamId");
     if (!json_is_string(node)) {
@@ -83,28 +159,25 @@ int open_manifest_item(struct archive_stream_t** stream, json_t* item) {
         stream_class = "focus";
     }
 
-    ret = archive_stream_open(stream, filename_str, start, stop,
-                              stream_id, stream_class);
+    ret = file_media_source_open(source_out, filename_str, start, stop,
+                                 stream_id, stream_class);
     printf("parsed archive stream %s\n", filename_str);
     return ret;
 }
 
-int archive_open(struct archive_t** archive_out, int width, int height,
-                 const char* path,
-                 const char* css_preset, const char* css_custom,
-                 const char* manifest_supplemental_path)
+static int archive_open(struct archive_s* archive)
 {
     int ret;
     glob_t globbuf;
-    ret = chdir(path);
+    ret = chdir(archive->source_path);
     if (ret) {
-        printf("unknown path %s\n", path);
+        printf("unknown path %s\n", archive->source_path);
         return -1;
     }
     glob("*.json", 0, globerr, &globbuf);
 
     if (!globbuf.gl_pathc) {
-        printf("no json manifest found at %s\n", path);
+        printf("no json manifest found at %s\n", archive->source_path);
     }
     // use the first json file we find inside the archive zip (hopefully only)
     const char* manifest_path = globbuf.gl_pathv[0];
@@ -125,182 +198,45 @@ int archive_open(struct archive_t** archive_out, int width, int height,
     }
     size_t index;
     json_t *value;
-    struct archive_stream_t* archive_stream;
-    struct archive_t* archive =
-    (struct archive_t*) calloc(1, sizeof(struct archive_t));
-    *archive_out = archive;
-
-    archive->streams = std::vector<struct archive_stream_t*>();
-    archive->width = width;
-    archive->height = height;
+    struct file_media_source_s* file_source;
 
     json_array_foreach(files, index, value) {
-        ret = open_manifest_item(&archive_stream, value);
-        if (!ret) {
-            archive->streams.push_back(archive_stream);
-        }
+        ret = open_manifest_item(&file_source, value);
+      if (ret) {
+        continue;
+      }
+      if (archive->begin_offset > 0) {
+        file_media_source_seek(file_source, archive->begin_offset);
+      }
+      archive->sources.push_back(file_source);
     }
-
-    archive->layout = new ArchiveLayout(width, height);
-
-    archive->auto_layout = 0;
-
-    std::string style_sheet;
-    if (NULL == css_preset) {
-        printf("No stylesheet preset defined. Using auto.");
-        archive->auto_layout = 1;
-        style_sheet = Layout::kBestfitCss;
-    } else if (!strcmp("bestFit", css_preset)) {
-        style_sheet = Layout::kBestfitCss;
-    } else if (!strcmp("verticalPresentation", css_preset)) {
-        style_sheet = Layout::kVerticalPresentation;
-    } else if (!strcmp("horizontalPresentation", css_preset)) {
-        style_sheet = Layout::kHorizontalPresentation;
-    } else if (!strcmp("pip", css_preset)) {
-        style_sheet = Layout::kPip;
-    } else if (!strcmp("custom", css_preset)) {
-        style_sheet = css_custom;
-    } else if (!strcmp("auto", css_preset)) {
-        archive->auto_layout = 1;
-        style_sheet = Layout::kBestfitCss;
-    } else {
-        printf("unknown css preset defined. Using auto.");
-        archive->auto_layout = 1;
-        style_sheet = Layout::kBestfitCss;
-    }
-
-    archive->layout->setStyleSheet(style_sheet);
 
     return 0;
 }
-
-int archive_free(struct archive_t* archive) {
-    // free streams & vector
-    // free layout
-    // free root struct
-    free(archive);
-    return 0;
-}
-
-void archive_set_output_video_fps(struct archive_t* archive, int fps) {
-    for (struct archive_stream_t* stream : archive->streams) {
-        archive_stream_set_output_video_fps(stream, fps);
-    }
-}
-
-void do_auto_layout(struct archive_t* archive,
-                    std::vector<ArchiveStreamInfo>& stream_info)
+#pragma mark - Internal utilities
+static double archive_get_finish_clock_time(struct archive_s* archive)
 {
-    char has_focus = 0;
-    int non_focus_count = 0;
-    for (auto info : stream_info) {
-        if (0 == strcmp(info.layout_class().c_str(), "focus")) {
-            has_focus = 1;
-        } else {
-            non_focus_count++;
-        }
-    }
-
-    if (has_focus && non_focus_count < 2) {
-        archive->layout->setStyleSheet(Layout::kPip);
-    } else if (has_focus && non_focus_count > 1) {
-        archive->layout->setStyleSheet(Layout::kHorizontalPresentation);
-    } else {
-        archive->layout->setStyleSheet(Layout::kBestfitCss);
-    }
-}
-
-int archive_populate_stream_coords(struct archive_t* archive,
-                                   int64_t clock_time,
-                                   AVRational clock_time_base)
-{
-    // Regenerate stream list every tick to allow on-the-fly layout changes
-    std::vector<ArchiveStreamInfo> stream_info;
-    for (struct archive_stream_t* stream : archive->streams) {
-        char will_use_stream =
-        (archive_stream_is_active_at_time(stream, clock_time,
-                                          clock_time_base) &&
-         archive_stream_has_video_for_time(stream, clock_time,
-                                           clock_time_base));
-        if (will_use_stream)
-        {
-            stream_info.push_back
-            (ArchiveStreamInfo(archive_stream_get_name(stream),
-                               archive_stream_get_class(stream),
-                               true));
-        }
-    }
-
-    // switch between bestfit and horizontal presentation if in auto layout mode
-    if (archive->auto_layout) {
-        do_auto_layout(archive, stream_info);
-    }
-
-    StreamPositions positions = archive->layout->layout(stream_info);
-    for (ComposerLayoutStreamPosition position : positions) {
-        for (struct archive_stream_t* stream : archive->streams) {
-            if (!strcmp(position.stream_id.c_str(),
-                        archive_stream_get_name(stream))) {
-                archive_stream_set_offset_x(stream, position.x);
-                archive_stream_set_offset_y(stream, position.y);
-                archive_stream_set_render_width(stream, position.width);
-                archive_stream_set_render_height(stream, position.height);
-                archive_stream_set_object_fit(stream,
-                                              (enum object_fit)position.fit);
-                archive_stream_set_z_index(stream, position.z);
-            }
-        }
-    }
-    return 0;
-}
-
-int64_t archive_get_finish_clock_time(struct archive_t* archive)
-{
-    int64_t finish_time = 0;
-    for (struct archive_stream_t* stream : archive->streams)
+    double finish_time = 0;
+    for (struct file_media_source_s* source : archive->sources)
     {
-        if (finish_time < archive_stream_get_stop_offset(stream)) {
-            finish_time = archive_stream_get_stop_offset(stream);
+        if (finish_time < file_stream_get_stop_offset(source)) {
+            finish_time = file_stream_get_stop_offset(source);
         }
     }
     return finish_time;
 }
 
-bool z_index_sort(const struct archive_stream_t* stream1,
-                   const struct archive_stream_t* stream2)
+static int setup_streams_for_tick(struct archive_s* archive, double clock_time)
 {
-    return (archive_stream_get_z_index(stream1) <
-            archive_stream_get_z_index(stream2));
-}
-
-int archive_get_active_streams_for_time(struct archive_t* archive,
-                                        int64_t clock_time,
-                                        AVRational time_base,
-                                        struct archive_stream_t*** streams_out,
-                                        int* num_streams_out)
-{
-    std::vector<struct archive_stream_t*> result;
-    // find any streams that should present content on this tick
-    for (struct archive_stream_t* stream : archive->streams) {
-        if (archive_stream_is_active_at_time(stream, clock_time, time_base)) {
-            result.push_back(stream);
-        }
+  // find any streams that should present content on this tick
+  for (struct file_media_source_s* stream : archive->sources) {
+    struct barc_source_s barc_source;
+    barc_source.media_stream = file_media_source_get_stream(stream);
+    if (file_stream_is_active_at_time(stream, clock_time)) {
+      barc_add_source(archive->barc, &barc_source);
+    } else {
+      barc_remove_source(archive->barc, &barc_source);
     }
-    std::sort(result.begin(), result.end(), z_index_sort);
-    *num_streams_out = (int) result.size();
-    // convert to c-style array (isn't there a vector function for this??)
-    struct archive_stream_t** streams_arr =
-    (struct archive_stream_t**)calloc(*num_streams_out,
-                                      sizeof(struct archive_stream_t*));
-    for (int i = 0; i < *num_streams_out; i++) {
-        streams_arr[i] = result[i];
-    }
-    *streams_out = streams_arr;
-    return 0;
-}
-
-int archive_free_active_streams(struct archive_stream_t* streams)
-{
-    free(streams);
-    return 0;
+  }
+  return 0;
 }
