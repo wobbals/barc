@@ -6,6 +6,8 @@ const zlib = require('zlib');
 const path = require('path');
 
 var https = require('https');
+var request = require('request');
+var progress = require('request-progress');
 var validator = require('validator');
 var config = require('config');
 var debug = require('debug')('barc:worker');
@@ -239,30 +241,20 @@ var uploadArchiveOutput = function(job, done, archiveOutput) {
 var downloadArchive = function(job, archiveURL, callback) {
   debug(`Request download of archive ${archiveURL}`)
   var archivePath = `${job.id}-download`;
-  var fd = fs.openSync(archivePath, "w+");
-  var ws = fs.createWriteStream(null, { fd: fd , flags: 'w+' });
-  var request = https.get(archiveURL, function(response) {
-    debug("Archive download response: ", response.statusCode);
-    var totalDownload = parseInt(response.headers['content-length'], 10);
-    var currentDownload = 0;
-    // pope all output to temporary file container
-    response.pipe(ws);
-    // keep job updated as download happens
-    response.on("data", function(chunk) {
-      currentDownload += chunk.length;
-      // update job progress to keep from timing out
-      // step 1: this phase should not raise completeness above 33%
-      job.progress(currentDownload, totalDownload * 3);
-    });
-    response.on("end", function() {
-      callback(archivePath, null);
-    });
-  }).on('error', function(err) {
-    // Delete the file async. (But we don't check the result)
+  progress(request(archiveURL), {
+  })
+  .on('progress', function (state) {
+      job.progress(state.size.transferred, state.size.total * 3);
+  })
+  .on('error', function (err) {
     debug("Error on archive download: ", err);
     fs.unlink(archivePath);
     if (callback) {
       callback(null, err.message); 
     }
-  });
+  })
+  .on('end', function () {
+    callback(archivePath, null);
+  })
+  .pipe(fs.createWriteStream(archivePath));
 }
