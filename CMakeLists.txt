@@ -67,7 +67,7 @@ include_directories (
 )
 
 # This comes at the end of all the linking commands issued above.
-add_library (arcc SHARED ${SOURCES})
+add_library (arcc ${SOURCES})
 link_libraries (arcc)
 add_executable (barc "barc/main.c")
 

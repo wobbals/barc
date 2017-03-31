@@ -213,7 +213,7 @@ void video_mixer_set_css_preset(struct video_mixer_s* mixer,
 
   std::string style_sheet;
   if (NULL == css_preset) {
-    printf("No stylesheet preset defined. Using auto.");
+    printf("Video Mixer: no stylesheet preset defined. using auto.\n");
     mixer->auto_layout = 1;
     style_sheet = Layout::kBestfitCss;
   } else if (!strcmp("bestFit", css_preset)) {

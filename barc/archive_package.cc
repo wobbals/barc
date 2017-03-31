@@ -9,7 +9,8 @@ extern "C" {
 #include <unistd.h>
 #include <glob.h>
 #include <jansson.h>
-
+#include <assert.h>
+  
 #include "archive_package.h"
 #include "archive_manifest.h"
 #include "file_media_source.h"
@@ -23,6 +24,7 @@ extern "C" {
 struct archive_s {
   struct barc_s* barc;
   std::vector<struct file_media_source_s*> sources;
+  std::vector<const struct layout_event_s*> events;
   const char* source_path;
   double begin_offset;
   double end_offset;
@@ -32,17 +34,25 @@ struct archive_s {
 static int archive_open(struct archive_s* archive);
 static double archive_get_finish_clock_time(struct archive_s* archive);
 static int setup_streams_for_tick(struct archive_s* archive, double clock_time);
+static void process_layout_events(struct archive_s* pthis,
+                                  double clock_time);
 
 void archive_alloc(struct archive_s** archive_out) {
   struct archive_s* archive = (struct archive_s*)
   calloc(1, sizeof(struct archive_s));
   barc_alloc(&archive->barc);
   archive_manifest_alloc(&archive->manifest);
+  archive->sources = std::vector<struct file_media_source_s*>();
+  archive->events = std::vector<const struct layout_event_s*>();
   *archive_out = archive;
 }
 
 void archive_free(struct archive_s* archive) {
+  for (struct file_media_source_s* source : archive->sources) {
+    file_media_source_free(source);
+  }
   barc_free(archive->barc);
+  archive_manifest_free(archive->manifest);
   free(archive);
 }
 
@@ -83,6 +93,7 @@ int archive_main(struct archive_s* archive) {
   double global_clock = 0;
 
   while (!ret && end_time > global_clock) {
+    process_layout_events(archive, global_clock);
     setup_streams_for_tick(archive, global_clock);
     ret = barc_tick(archive->barc);
     global_clock = barc_get_current_clock(archive->barc);
@@ -109,8 +120,8 @@ int globerr(const char *path, int eerrno)
     return 0;	/* let glob() keep going */
 }
 
-static void open_manifest_item(struct archive_manifest_s* manifest,
-                               struct manifest_file_s* file, void* p)
+static void open_manifest_item(const struct archive_manifest_s* manifest,
+                               const struct manifest_file_s* file, void* p)
 {
   struct archive_s* pthis = (struct archive_s*)p;
   struct file_media_source_s* file_source;
@@ -128,6 +139,14 @@ static void open_manifest_item(struct archive_manifest_s* manifest,
     file_media_source_seek(file_source, pthis->begin_offset);
   }
   printf("opened archive stream source %s\n", file->filename);
+}
+
+static void register_layout_event(const struct archive_manifest_s* manifest,
+                                  const struct layout_event_s* event,
+                                  void* p)
+{
+  struct archive_s* pthis = (struct archive_s*)p;
+  pthis->events.push_back(event);
 }
 
 static int archive_open(struct archive_s* archive)
@@ -153,6 +172,8 @@ static int archive_open(struct archive_s* archive)
     return ret;
   }
   archive_manifest_files_walk(archive->manifest, open_manifest_item, archive);
+  archive_manifest_events_walk(archive->manifest, register_layout_event,
+                               archive);
   return 0;
 }
 
@@ -182,4 +203,40 @@ static int setup_streams_for_tick(struct archive_s* archive, double clock_time)
     }
   }
   return 0;
+}
+
+static void handle_layout_event(struct archive_s* pthis,
+                                const struct layout_event_s* event)
+{
+  if (layout_changed_event == event->action) {
+    barc_set_css_preset(pthis->barc, event->layout_changed.type);
+    barc_set_custom_css(pthis->barc, event->layout_changed.stylesheet);
+  } else if (stream_changed_event == event->action) {
+    for (struct file_media_source_s* source : pthis->sources) {
+      struct media_stream_s* stream = file_media_source_get_stream(source);
+      const char* stream_id = media_stream_get_name(stream);
+      if (!strcmp(stream_id, event->stream_changed.stream_id)) {
+        // TODO: layout classes defined as a list, but geometry only takes
+        // a single class per stream. One of them needs to change.
+        assert(event->stream_changed.num_layout_classes);
+        media_stream_set_class(stream,
+                               event->stream_changed.layout_class_list[0]);
+      }
+    }
+  }
+}
+
+static void process_layout_events(struct archive_s* pthis,
+                                  double clock_time)
+{
+  double offset;
+  for (const struct layout_event_s* event : pthis->events) {
+    offset = (event->created_at -
+    archive_manifest_get_created_at(pthis->manifest)) / 1000;
+    if (offset < clock_time) {
+      handle_layout_event(pthis, event);
+      auto index = std::find(pthis->events.begin(), pthis->events.end(), event);
+      pthis->events.erase(index);
+    }
+  }
 }

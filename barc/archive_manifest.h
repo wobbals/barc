@@ -23,6 +23,7 @@ struct manifest_file_s {
 };
 
 enum layout_event_action {
+  unknown_event = NULL,
   layout_changed_event,
   stream_changed_event
 };
@@ -40,18 +41,20 @@ struct stream_changed_s {
 };
 
 struct layout_event_s {
-  const double created_at;
-  const enum layout_event_action action;
+  double created_at;
+  enum layout_event_action action;
   union {
-    const struct layout_changed_s layout_changed;
-    const struct stream_changed_s stream_changed;
+    struct layout_changed_s layout_changed;
+    struct stream_changed_s stream_changed;
   };
 };
 
 typedef void (manifest_files_walk_f)
-(struct archive_manifest_s* manifest, struct manifest_file_s* file, void* p);
+(const struct archive_manifest_s* manifest, const struct manifest_file_s* file,
+ void* p);
 typedef void (manifest_layout_events_walk_f)
-(struct archive_manifest_s* manifest, struct layout_event_s* event, void* p);
+(const struct archive_manifest_s* manifest, const struct layout_event_s* event,
+ void* p);
 
 /**
  * Parser for individual stream archive manifest json
@@ -65,14 +68,18 @@ int archive_manifest_parse(struct archive_manifest_s* manifest,
  */
 int archive_manifest_files_walk(struct archive_manifest_s* manifest,
                                 manifest_files_walk_f* walk_f, void* parg);
-
+/**
+ * @return the number of files walked.
+ */
 int archive_manifest_events_walk(struct archive_manifest_s* manifest,
                                  manifest_layout_events_walk_f* walk_f,
                                  void* parg);
-double archive_manifest_get_created_at(struct archive_manifest_s* manifest);
-const char* archive_manifest_get_id(struct archive_manifest_s* manifest);
-const char* archive_manifest_get_name(struct archive_manifest_s* manifest);
+
+double archive_manifest_get_created_at(const struct archive_manifest_s* manifest);
+const char* archive_manifest_get_id(const struct archive_manifest_s* manifest);
+const char* archive_manifest_get_name
+(const struct archive_manifest_s* manifest);
 const char* archive_manifest_get_session_id
-(struct archive_manifest_s* manifest);
+(const struct archive_manifest_s* manifest);
 
 #endif /* archive_manifest_h */

@@ -7,6 +7,7 @@
 
 extern "C" {
 #include <stdlib.h>
+#include <string.h>
 #include <jansson.h>
 #include "archive_manifest.h"
 }
@@ -19,17 +20,25 @@ struct archive_manifest_s {
   const char* session_id;
   double created_at;
   std::vector<struct manifest_file_s*> files;
+  std::vector<struct layout_event_s*> layout_events;
 };
 
 void archive_manifest_alloc(struct archive_manifest_s** manifest_out) {
   struct archive_manifest_s* pthis = (struct archive_manifest_s*)
   calloc(1, sizeof(struct archive_manifest_s));
   pthis->files = std::vector<struct manifest_file_s*>();
+  pthis->layout_events = std::vector<struct layout_event_s*>();
   *manifest_out = pthis;
 }
 void archive_manifest_free(struct archive_manifest_s* pthis) {
-  for(struct manifest_file_s* file : pthis->files) {
+  for (struct manifest_file_s* file : pthis->files) {
     free(file);
+  }
+  for (struct layout_event_s* event : pthis->layout_events) {
+    if (stream_changed_event == event->action) {
+      free(event->stream_changed.layout_class_list);
+    }
+    free(event);
   }
   pthis->files.clear();
   free(pthis);
@@ -46,20 +55,20 @@ int parse_file(struct manifest_file_s* file, json_t* json) {
   file->filename = json_string_value(node);
 
   node = json_object_get(json, "startTimeOffset");
-  if (!json_is_integer(node)) {
+  if (!json_is_number(node)) {
     printf("unable to parse start time!\n");
     return -1;
   }
   file->start_time_offset =
-  (double) json_integer_value(node) / MANIFEST_TIME_BASE;
+  (double) json_number_value(node) / MANIFEST_TIME_BASE;
 
   node = json_object_get(json, "stopTimeOffset");
-  if (!json_is_integer(node)) {
+  if (!json_is_number(node)) {
     printf("unable to parse stop time!\n");
     return -1;
   }
   file->stop_time_offset =
-  (double) json_integer_value(node) / MANIFEST_TIME_BASE;
+  (double) json_number_value(node) / MANIFEST_TIME_BASE;
 
   node = json_object_get(json, "streamId");
   if (!json_is_string(node)) {
@@ -91,19 +100,122 @@ int parse_file(struct manifest_file_s* file, json_t* json) {
   return 0;
 }
 
+int parse_layout_changed_event(struct layout_event_s* event, json_t* json) {
+  json_t* layout_json = json_object_get(json, "layout");
+  if (!json_is_object(layout_json)) {
+    printf("missing layout changed event data\n");
+    return -1;
+  }
+  json_t* node = json_object_get(layout_json, "type");
+  if (!json_is_string(node)) {
+    printf("unable to parse layout changed event type\n");
+    return -1;
+  }
+  event->layout_changed.type = json_string_value(node);
+
+  node = json_object_get(layout_json, "stylesheet");
+  if (!json_is_string(node)) {
+    //optional field. do not fail if missing.
+    printf("missing layout changed event stylesheet\n");
+  } else {
+    event->layout_changed.stylesheet = json_string_value(node);
+  }
+
+  return 0;
+}
+
+int parse_stream_changed_event(struct layout_event_s* event, json_t* json) {
+  json_t* stream_json = json_object_get(json, "stream");
+  if (!json_is_object(stream_json)) {
+    printf("missing stream changed event data\n");
+    return -1;
+  }
+  json_t* node = json_object_get(stream_json, "id");
+  if (!json_is_string(node)) {
+    printf("unable to parse stream changed event id\n");
+    return -1;
+  }
+  event->stream_changed.stream_id = json_string_value(node);
+  node = json_object_get(stream_json, "videoType");
+  if (!json_is_string(node)) {
+    // optional field
+    printf("unable to parse stream changed event videoType\n");
+  } else {
+    event->stream_changed.video_type = json_string_value(node);
+  }
+  node = json_object_get(stream_json, "layoutClassList");
+  if (!json_is_array(node)) {
+    // optional field
+    printf("missing stream event changed layoutClassList\n");
+  } else {
+    size_t num_classes = json_array_size(node);
+    event->stream_changed.layout_class_list = (const char**)
+    calloc(num_classes, sizeof(const char*));
+    json_t* value;
+    int index;
+    json_array_foreach(node, index, value) {
+      if (!json_is_string(value)) {
+        printf("non-string stream changed event layout class\n");
+        continue;
+      }
+      event->stream_changed.layout_class_list[index] = json_string_value(value);
+    }
+  }
+  return 0;
+}
+
+int parse_event(struct layout_event_s* event, json_t* json) {
+  json_t* node = json_object_get(json, "createdAt");
+  if (!json_is_number(node)) {
+    printf("unable to parse layout event createdAt\n");
+    return -1;
+  }
+  event->created_at = json_number_value(node);
+
+  node = json_object_get(json, "action");
+  if (!json_is_string(node)) {
+    printf("unable to parse layout event action\n");
+    return -1;
+  }
+  const char* action = json_string_value(node);
+  if (!strcmp("layoutChanged", action)) {
+    event->action = layout_changed_event;
+  } else if (!strcmp("streamChanged", action)) {
+    event->action = stream_changed_event;
+  } else {
+    event->action = unknown_event;
+  }
+
+  int ret;
+  switch(event->action) {
+    case layout_changed_event:
+      ret = parse_layout_changed_event(event, json);
+      break;
+    case stream_changed_event:
+      ret = parse_stream_changed_event(event, json);
+      break;
+    default:
+      printf("unable to parse unknown layout event\n");
+      ret = -1;
+      break;
+  }
+  
+  return ret;
+}
+
 int archive_manifest_parse(struct archive_manifest_s* pthis,
                            const char* path)
 {
-  json_t* manifest;
+  json_t* json;
   json_error_t error;
 
-  manifest = json_load_file(path, 0, &error);
-  if (!manifest) {
+  json = json_load_file(path, 0, &error);
+  if (!json) {
     printf("Unable to parse json manifest: line %d: %s\n",
            error.line, error.text);
     return 1;
   }
-  json_t* files = json_object_get(manifest, "files");
+  json_t* files = json_object_get(json, "files");
 
   if (!json_is_array(files)) {
     printf("No files declared in manifest\n");
@@ -117,12 +229,60 @@ int archive_manifest_parse(struct archive_manifest_s* pthis,
     calloc(1, sizeof(manifest_file_s));
     int ret = parse_file(file, item);
     if (ret) {
-      printf("warning! unable to parse file in arhive manifest\n");
+      printf("warning: unable to parse file in archive manifest\n");
       free(file);
     } else {
       pthis->files.push_back(file);
     }
   }
+
+  json_t* layout_events_json = json_object_get(json, "layoutEvents");
+
+  if (!json_is_array(layout_events_json)) {
+    // field is optional: not present in production currently
+    printf("No layout events declared in manifest\n");
+  } else {
+    json_array_foreach(layout_events_json, index, item) {
+      struct layout_event_s* event = (struct layout_event_s*)
+      calloc(1, sizeof(layout_event_s));
+      int ret = parse_event(event, item);
+      if (ret) {
+        printf("warning: unable to parse layout event in archive manifest\n");
+        free(event);
+      } else {
+        pthis->layout_events.push_back(event);
+      }
+    }
+  }
+
+  json_t* node = json_object_get(json, "id");
+  if (!json_is_string(node)) {
+    printf("warning: unable to parse archive id!\n");
+  } else {
+    pthis->archive_id = json_string_value(node);
+  }
+
+  node = json_object_get(json, "name");
+  if (!json_is_string(node)) {
+    printf("warning: unable to parse archive id!\n");
+    return -1;
+  }
+  pthis->archive_id = json_string_value(node);
+
+  node = json_object_get(json, "sessionId");
+  if (!json_is_string(node)) {
+    printf("warning: unable to parse archive id!\n");
+    return -1;
+  }
+
+  pthis->session_id = json_string_value(node);
+
+  node = json_object_get(json, "createdAt");
+  if (!json_is_number(node)) {
+    printf("warning: unable to createdAt!\n");
+    return -1;
+  }
+  pthis->created_at = json_number_value(node);
 
   return 0;
 }
@@ -136,27 +296,36 @@ int archive_manifest_files_walk(struct archive_manifest_s* pthis,
   return (int) pthis->files.size();
 }
 
-int archive_manifest_events_walk(struct archive_manifest_s* manifest,
+int archive_manifest_events_walk(struct archive_manifest_s* pthis,
                                  manifest_layout_events_walk_f* walk_f,
                                  void* parg)
 {
-  return 0;
+  for (struct layout_event_s* event : pthis->layout_events) {
+    walk_f(pthis, (const struct layout_event_s*) event, parg);
+  }
+  return (int) pthis->layout_events.size();
 }
 
-double archive_manifest_get_created_at(struct archive_manifest_s* manifest) {
+double archive_manifest_get_created_at
+(const struct archive_manifest_s* manifest)
+{
   return manifest->created_at;
 }
 
-const char* archive_manifest_get_id(struct archive_manifest_s* manifest) {
+const char* archive_manifest_get_id
+(const struct archive_manifest_s* manifest)
+{
   return manifest->archive_id;
 }
 
-const char* archive_manifest_get_name(struct archive_manifest_s* manifest) {
+const char* archive_manifest_get_name
+(const struct archive_manifest_s* manifest)
+{
   return manifest->name;
 }
 
 const char* archive_manifest_get_session_id
-(struct archive_manifest_s* manifest)
+(const struct archive_manifest_s* manifest)
 {
   return manifest->session_id;
 }
