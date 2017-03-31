@@ -7,7 +7,7 @@ set (CMAKE_C_FLAGS "--std=gnu99 ${CMAKE_C_FLAGS}")
 file (GLOB SOURCES "barc/*.c" "barc/*.cpp" "barc/*.cc")
 list (REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/barc/main.c")
 
-message ("libbarc using sources: ${SOURCES}")
+message ("libarcc using sources: ${SOURCES}")
 
 add_subdirectory (${CMAKE_SOURCE_DIR}/ext/litehtml)
 
@@ -67,8 +67,8 @@ include_directories (
 )
 
 # This comes at the end of all the linking commands issued above.
-add_library (libbarc ${SOURCES})
-link_libraries (libbarc)
+add_library (arcc SHARED ${SOURCES})
+link_libraries (arcc)
 add_executable (barc "barc/main.c")
 
 add_subdirectory(ext/googletest/googletest)

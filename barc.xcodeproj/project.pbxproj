@@ -95,6 +95,7 @@
 		D49D2CD81E404A14005096BF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD71E404A14005096BF /* Foundation.framework */; };
 		D49D2CDA1E404A2E005096BF /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD91E404A2E005096BF /* AppKit.framework */; };
 		D49D2CDC1E404A4B005096BF /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CDB1E404A4B005096BF /* OpenGL.framework */; };
+		D4BAE0761E8EBA5F007FE693 /* archive_manifest.cc in Sources */ = {isa = PBXBuildFile; fileRef = D4BAE0741E8EBA5F007FE693 /* archive_manifest.cc */; };
 		D4EEBD4E1E4D13CB0004B76A /* libzip.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */; };
 		D4EEBD541E4D289B0004B76A /* file_writer.c in Sources */ = {isa = PBXBuildFile; fileRef = D4EEBD521E4D289B0004B76A /* file_writer.c */; };
 		D4EEBD561E4E51900004B76A /* libuv.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4EEBD551E4E51900004B76A /* libuv.1.dylib */; };
@@ -695,6 +696,8 @@
 		D49D2CD71E404A14005096BF /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		D49D2CD91E404A2E005096BF /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		D49D2CDB1E404A4B005096BF /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
+		D4BAE0741E8EBA5F007FE693 /* archive_manifest.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = archive_manifest.cc; sourceTree = "<group>"; };
+		D4BAE0751E8EBA5F007FE693 /* archive_manifest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = archive_manifest.h; sourceTree = "<group>"; };
 		D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libzip.4.dylib; path = ../../../../usr/local/Cellar/libzip/1.1.2/lib/libzip.4.dylib; sourceTree = "<group>"; };
 		D4EEBD521E4D289B0004B76A /* file_writer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = file_writer.c; sourceTree = "<group>"; };
 		D4EEBD531E4D289B0004B76A /* file_writer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = file_writer.h; sourceTree = "<group>"; };
@@ -1645,6 +1648,8 @@
 				D47DB34F1E3170820052418C /* main.c */,
 				D48351371E77A93700EF935A /* barc.cc */,
 				D48351381E77A93700EF935A /* barc.h */,
+				D4BAE0741E8EBA5F007FE693 /* archive_manifest.cc */,
+				D4BAE0751E8EBA5F007FE693 /* archive_manifest.h */,
 				D47DB3B41E3A9C060052418C /* archive_package.cc */,
 				D47DB3B51E3A9C060052418C /* archive_package.h */,
 				D47DB3BB1E3A9C920052418C /* media_stream.cc */,
@@ -1922,6 +1927,7 @@
 				D47018B91E3BC5130040257B /* web_color.cpp in Sources */,
 				D47018B31E3BC5130040257B /* iterators.cpp in Sources */,
 				D483513C1E787A4800EF935A /* video_mixer.cc in Sources */,
+				D4BAE0761E8EBA5F007FE693 /* archive_manifest.cc in Sources */,
 				D470189F1E3BC5130040257B /* el_style.cpp in Sources */,
 				D47018981E3BC5130040257B /* el_div.cpp in Sources */,
 				D47018A31E3BC5130040257B /* el_title.cpp in Sources */,

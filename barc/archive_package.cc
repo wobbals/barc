@@ -11,6 +11,7 @@ extern "C" {
 #include <jansson.h>
 
 #include "archive_package.h"
+#include "archive_manifest.h"
 #include "file_media_source.h"
 #include "barc.h"
 }
@@ -25,6 +26,7 @@ struct archive_s {
   const char* source_path;
   double begin_offset;
   double end_offset;
+  struct archive_manifest_s* manifest;
 };
 
 static int archive_open(struct archive_s* archive);
@@ -35,6 +37,7 @@ void archive_alloc(struct archive_s** archive_out) {
   struct archive_s* archive = (struct archive_s*)
   calloc(1, sizeof(struct archive_s));
   barc_alloc(&archive->barc);
+  archive_manifest_alloc(&archive->manifest);
   *archive_out = archive;
 }
 
@@ -106,113 +109,53 @@ int globerr(const char *path, int eerrno)
     return 0;	/* let glob() keep going */
 }
 
-// we know from documentation these units are in millis
-#define MANIFEST_TIME_BASE 1000
-static int open_manifest_item(struct file_media_source_s** source_out,
-                              json_t* item)
+static void open_manifest_item(struct archive_manifest_s* manifest,
+                               struct manifest_file_s* file, void* p)
 {
-    int ret;
-    json_t* node = json_object_get(item, "filename");
-    if (!json_is_string(node)) {
-        printf("unable to parse filename!\n");
-        return -1;
-    }
-    const char* filename_str = json_string_value(node);
-
-    node = json_object_get(item, "startTimeOffset");
-    if (!json_is_integer(node)) {
-        printf("unable to parse start time!\n");
-        return -1;
-    }
-    double start = (double) json_integer_value(node) / MANIFEST_TIME_BASE;
-
-    node = json_object_get(item, "stopTimeOffset");
-    if (!json_is_integer(node)) {
-        printf("unable to parse stop time!\n");
-        return -1;
-    }
-    double stop = (double) json_integer_value(node) / MANIFEST_TIME_BASE;
-
-    node = json_object_get(item, "streamId");
-    if (!json_is_string(node)) {
-        printf("unable to parse streamid!\n");
-        return -1;
-    }
-    const char* stream_id = json_string_value(node);
-
-    const char* stream_class = "";
-    node = json_object_get(item, "layoutClass");
-    if (json_is_string(node)) {
-        stream_class = json_string_value(node);
-    }
-
-    const char* video_type = "";
-    node = json_object_get(item, "videoType");
-    if (json_is_string(node)) {
-        video_type = json_string_value(node);
-    }
-    // hack: automatically set stream class 'focus' if
-    // 1) undefined in manifest AND
-    // 2) videoType is 'screen' (eg. probably a screenshare)
-    // TODO: Consider overriding object-fit properties for these stream types
-    if (!strcmp(video_type, "screen") && !strlen(stream_class)) {
-        stream_class = "focus";
-    }
-
-    ret = file_media_source_open(source_out, filename_str, start, stop,
-                                 stream_id, stream_class);
-    printf("parsed archive stream %s\n", filename_str);
-    return ret;
+  struct archive_s* pthis = (struct archive_s*)p;
+  struct file_media_source_s* file_source;
+  int ret = file_media_source_open(&file_source, file->filename,
+                                   file->start_time_offset,
+                                   file->stop_time_offset,
+                                   file->stream_id,
+                                   file->stream_class);
+  if (ret) {
+    printf("failed to open archive stream source %s\n", file->filename);
+    return;
+  }
+  pthis->sources.push_back(file_source);
+  if (pthis->begin_offset > 0) {
+    file_media_source_seek(file_source, pthis->begin_offset);
+  }
+  printf("opened archive stream source %s\n", file->filename);
 }
 
 static int archive_open(struct archive_s* archive)
 {
-    int ret;
-    glob_t globbuf;
-    ret = chdir(archive->source_path);
-    if (ret) {
-        printf("unknown path %s\n", archive->source_path);
-        return -1;
-    }
-    glob("*.json", 0, globerr, &globbuf);
+  int ret;
+  glob_t globbuf;
+  ret = chdir(archive->source_path);
+  if (ret) {
+    printf("unknown path %s\n", archive->source_path);
+    return -1;
+  }
+  glob("*.json", 0, globerr, &globbuf);
 
-    if (!globbuf.gl_pathc) {
-        printf("no json manifest found at %s\n", archive->source_path);
-    }
-    // use the first json file we find inside the archive zip (hopefully only)
-    const char* manifest_path = globbuf.gl_pathv[0];
-    json_t *manifest;
-    json_error_t error;
+  if (!globbuf.gl_pathc) {
+    printf("no json manifest found at %s\n", archive->source_path);
+  }
+  // use the first json file we find inside the archive zip (hopefully only)
+  const char* manifest_path = globbuf.gl_pathv[0];
 
-    manifest = json_load_file(manifest_path, 0, &error);
-    if (!manifest) {
-        printf("Unable to parse json manifest: line %d: %s\n",
-               error.line, error.text);
-        return 1;
-    }
-    json_t* files = json_object_get(manifest, "files");
-
-    if (!json_is_array(files)) {
-        printf("No files declared in manifest\n");
-        return 1;
-    }
-    size_t index;
-    json_t *value;
-    struct file_media_source_s* file_source;
-
-    json_array_foreach(files, index, value) {
-        ret = open_manifest_item(&file_source, value);
-      if (ret) {
-        continue;
-      }
-      if (archive->begin_offset > 0) {
-        file_media_source_seek(file_source, archive->begin_offset);
-      }
-      archive->sources.push_back(file_source);
-    }
-
-    return 0;
+  ret = archive_manifest_parse(archive->manifest, manifest_path);
+  if (ret) {
+    printf("CRITICAL: failed to parse archive manifest.");
+    return ret;
+  }
+  archive_manifest_files_walk(archive->manifest, open_manifest_item, archive);
+  return 0;
 }
+
 #pragma mark - Internal utilities
 static double archive_get_finish_clock_time(struct archive_s* archive)
 {

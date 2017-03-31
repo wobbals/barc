@@ -26,7 +26,7 @@ struct media_stream_s;
  * @param p user supplied argument pointer
  * @return 0 on success
  */
-typedef int (media_stream_get_frame_cb)(struct media_stream_s* stream,
+typedef int (media_stream_get_audio_frame_cb)(struct media_stream_s* stream,
                                         AVFrame* frame, double time_clock,
                                         void* p);
 typedef int (media_stream_get_video_frame_cb)
@@ -35,39 +35,8 @@ typedef int (media_stream_get_video_frame_cb)
 void media_stream_set_video_read(struct media_stream_s* stream,
                                  media_stream_get_video_frame_cb* cb, void* p);
 void media_stream_set_audio_read(struct media_stream_s* stream,
-                                 media_stream_get_frame_cb* cb, void* p);
-/**
- * Fetching stream configuration - get attributes about the stream itself.
- * This should probably be cleaned up and decoding moved into the user-source
- */
-struct stream_config_s {
-  int sample_rate;
-  int num_channels;
-  AVCodecContext* context;
-  int64_t start_offset;
-  enum AVSampleFormat sample_format;
-  uint64_t channel_layout;
-};
+                                 media_stream_get_audio_frame_cb* cb, void* p);
 
-typedef int (archive_get_config_cb)
-(struct stream_config_s* stream_config, void* p);
-void media_stream_set_audio_config_callback
-(struct media_stream_s* stream, archive_get_config_cb* cb,
- void* p);
-void media_stream_set_video_config_callback
-(struct media_stream_s* stream, archive_get_config_cb* cb,
- void* p);
-
-/**
- * File-based stream source may be used to read from a file. We'll do the best
- * we can to let FFmpeg do it's magic and allow any file type, but at the time
- * this was written, there are some assumptions about the input file type.
- */
-int archive_stream_open_file(struct media_stream_s** stream_out,
-                             const char *filename,
-                             int64_t start_offset, int64_t stop_offset,
-                             const char* stream_name,
-                             const char* stream_class);
 #pragma mark - Memory lifecycle
 
 int media_stream_alloc(struct media_stream_s** stream_out);
