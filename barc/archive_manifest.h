@@ -8,6 +8,8 @@
 #ifndef archive_manifest_h
 #define archive_manifest_h
 
+#include <stddef.h>
+
 struct archive_manifest_s;
 
 struct manifest_file_s {
@@ -23,7 +25,7 @@ struct manifest_file_s {
 };
 
 enum layout_event_action {
-  unknown_event = NULL,
+  unknown_event = 0,
   layout_changed_event,
   stream_changed_event
 };

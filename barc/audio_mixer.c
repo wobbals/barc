@@ -56,7 +56,7 @@ int audio_mixer_get_samples_for_streams
                 (((float)source_samples[j][k]) / INT16_MAX);
                 if (fabs(dest_samples[j][k]) > 1.0) {
                     // turn down for what
-                    printf("clip\n");
+                    printf("audio clip detected\n");
                     dest_samples[j][k] = fmin(1.0, dest_samples[j][k]);
                     dest_samples[j][k] = fmax(-1.0, dest_samples[j][k]);
                 }

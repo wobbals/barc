@@ -70,6 +70,13 @@ int parse_file(struct manifest_file_s* file, json_t* json) {
   file->stop_time_offset =
   (double) json_number_value(node) / MANIFEST_TIME_BASE;
 
+  node = json_object_get(json, "size");
+  if (!json_is_number(node)) {
+    printf("unable to parse size!\n");
+    return -1;
+  }
+  file->size = (double) json_number_value(node);
+
   node = json_object_get(json, "streamId");
   if (!json_is_string(node)) {
     printf("unable to parse streamid!\n");
@@ -281,7 +288,7 @@ int archive_manifest_parse(struct archive_manifest_s* pthis,
     printf("warning: unable to parse archive id!\n");
     return -1;
   }
-  pthis->archive_id = json_string_value(node);
+  pthis->name = json_string_value(node);
 
   node = json_object_get(json, "sessionId");
   if (!json_is_string(node)) {

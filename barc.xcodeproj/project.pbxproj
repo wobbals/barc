@@ -696,6 +696,7 @@
 		D49D2CD71E404A14005096BF /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		D49D2CD91E404A2E005096BF /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		D49D2CDB1E404A4B005096BF /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
+		D49DDC5C1E9028B300DB2E53 /* test_manifest_parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = test_manifest_parser.cc; path = test/test_manifest_parser.cc; sourceTree = "<group>"; };
 		D4BAE0741E8EBA5F007FE693 /* archive_manifest.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = archive_manifest.cc; sourceTree = "<group>"; };
 		D4BAE0751E8EBA5F007FE693 /* archive_manifest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = archive_manifest.h; sourceTree = "<group>"; };
 		D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libzip.4.dylib; path = ../../../../usr/local/Cellar/libzip/1.1.2/lib/libzip.4.dylib; sourceTree = "<group>"; };
@@ -1458,6 +1459,7 @@
 			children = (
 				D43115EA1E6B5B4A0043763A /* test_smart_avframe.cc */,
 				D48E22411E7B8A9C00E5F39C /* test_file_writer.cc */,
+				D49DDC5C1E9028B300DB2E53 /* test_manifest_parser.cc */,
 			);
 			name = test;
 			sourceTree = "<group>";
