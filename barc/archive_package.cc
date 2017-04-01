@@ -10,7 +10,7 @@ extern "C" {
 #include <glob.h>
 #include <jansson.h>
 #include <assert.h>
-  
+
 #include "archive_package.h"
 #include "archive_manifest.h"
 #include "file_media_source.h"
@@ -216,11 +216,7 @@ static void handle_layout_event(struct archive_s* pthis,
       struct media_stream_s* stream = file_media_source_get_stream(source);
       const char* stream_id = media_stream_get_name(stream);
       if (!strcmp(stream_id, event->stream_changed.stream_id)) {
-        // TODO: layout classes defined as a list, but geometry only takes
-        // a single class per stream. One of them needs to change.
-        assert(event->stream_changed.num_layout_classes);
-        media_stream_set_class(stream,
-                               event->stream_changed.layout_class_list[0]);
+        media_stream_set_class(stream, event->stream_changed.layout_class);
       }
     }
   }

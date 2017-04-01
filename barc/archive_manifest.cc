@@ -36,7 +36,7 @@ void archive_manifest_free(struct archive_manifest_s* pthis) {
   }
   for (struct layout_event_s* event : pthis->layout_events) {
     if (stream_changed_event == event->action) {
-      free(event->stream_changed.layout_class_list);
+      free((void*)event->stream_changed.layout_class);
     }
     free(event);
   }
@@ -149,17 +149,31 @@ int parse_stream_changed_event(struct layout_event_s* event, json_t* json) {
     printf("missing stream event changed layoutClassList\n");
   } else {
     size_t num_classes = json_array_size(node);
-    event->stream_changed.layout_class_list = (const char**)
-    calloc(num_classes, sizeof(const char*));
     json_t* value;
     int index;
+    size_t concatenated_strlen = 0;
+    std::vector<const char*> classes;
+    // two-pass: calculate total string length
     json_array_foreach(node, index, value) {
       if (!json_is_string(value)) {
         printf("non-string stream changed event layout class\n");
         continue;
       }
-      event->stream_changed.layout_class_list[index] = json_string_value(value);
+      const char* sz_class = json_string_value(value);
+      concatenated_strlen += strlen(sz_class) + 1;
+      classes.push_back(sz_class);
     }
+    // then join the array of strings with a space
+    index = 0;
+    char* result = (char*) calloc(concatenated_strlen, sizeof(char));
+    for (const char* sz_class : classes) {
+      strcpy(&(result[index]), sz_class);
+      index += strlen(sz_class);
+      result[index++] = ' ';
+    }
+    // null terminate the string
+    result[index - 1] = '\0';
+    event->stream_changed.layout_class = (const char*)result;
   }
   return 0;
 }

@@ -36,8 +36,7 @@ struct layout_changed_s {
 struct stream_changed_s {
   const char* stream_id;
   const char* video_type;
-  const char** layout_class_list;
-  size_t num_layout_classes;
+  const char* layout_class;
 };
 
 struct layout_event_s {
