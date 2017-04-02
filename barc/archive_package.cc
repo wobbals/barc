@@ -9,8 +9,10 @@ extern "C" {
 #include <unistd.h>
 #include <glob.h>
 #include <jansson.h>
+#include <assert.h>
 
 #include "archive_package.h"
+#include "archive_manifest.h"
 #include "file_media_source.h"
 #include "barc.h"
 }
@@ -22,24 +24,35 @@ extern "C" {
 struct archive_s {
   struct barc_s* barc;
   std::vector<struct file_media_source_s*> sources;
+  std::vector<const struct layout_event_s*> events;
   const char* source_path;
   double begin_offset;
   double end_offset;
+  struct archive_manifest_s* manifest;
 };
 
 static int archive_open(struct archive_s* archive);
 static double archive_get_finish_clock_time(struct archive_s* archive);
 static int setup_streams_for_tick(struct archive_s* archive, double clock_time);
+static void process_layout_events(struct archive_s* pthis,
+                                  double clock_time);
 
 void archive_alloc(struct archive_s** archive_out) {
   struct archive_s* archive = (struct archive_s*)
   calloc(1, sizeof(struct archive_s));
   barc_alloc(&archive->barc);
+  archive_manifest_alloc(&archive->manifest);
+  archive->sources = std::vector<struct file_media_source_s*>();
+  archive->events = std::vector<const struct layout_event_s*>();
   *archive_out = archive;
 }
 
 void archive_free(struct archive_s* archive) {
+  for (struct file_media_source_s* source : archive->sources) {
+    file_media_source_free(source);
+  }
   barc_free(archive->barc);
+  archive_manifest_free(archive->manifest);
   free(archive);
 }
 
@@ -80,6 +93,7 @@ int archive_main(struct archive_s* archive) {
   double global_clock = 0;
 
   while (!ret && end_time > global_clock) {
+    process_layout_events(archive, global_clock);
     setup_streams_for_tick(archive, global_clock);
     ret = barc_tick(archive->barc);
     global_clock = barc_get_current_clock(archive->barc);
@@ -106,113 +120,67 @@ int globerr(const char *path, int eerrno)
     return 0;	/* let glob() keep going */
 }
 
-// we know from documentation these units are in millis
-#define MANIFEST_TIME_BASE 1000
-static int open_manifest_item(struct file_media_source_s** source_out,
-                              json_t* item)
+static void open_manifest_item(const struct archive_manifest_s* manifest,
+                               const struct manifest_file_s* file, void* p)
 {
-    int ret;
-    json_t* node = json_object_get(item, "filename");
-    if (!json_is_string(node)) {
-        printf("unable to parse filename!\n");
-        return -1;
-    }
-    const char* filename_str = json_string_value(node);
+  struct archive_s* pthis = (struct archive_s*)p;
+  struct file_media_source_s* file_source;
+  int ret = file_media_source_open(&file_source, file->filename,
+                                   file->start_time_offset,
+                                   file->stop_time_offset,
+                                   file->stream_id,
+                                   file->stream_class);
+  if (ret) {
+    printf("failed to open archive stream source %s\n", file->filename);
+    return;
+  }
+  pthis->sources.push_back(file_source);
+  if (pthis->begin_offset > 0) {
+    file_media_source_seek(file_source, pthis->begin_offset);
+  }
+  printf("opened archive stream source %s\n", file->filename);
+}
 
-    node = json_object_get(item, "startTimeOffset");
-    if (!json_is_integer(node)) {
-        printf("unable to parse start time!\n");
-        return -1;
-    }
-    double start = (double) json_integer_value(node) / MANIFEST_TIME_BASE;
-
-    node = json_object_get(item, "stopTimeOffset");
-    if (!json_is_integer(node)) {
-        printf("unable to parse stop time!\n");
-        return -1;
-    }
-    double stop = (double) json_integer_value(node) / MANIFEST_TIME_BASE;
-
-    node = json_object_get(item, "streamId");
-    if (!json_is_string(node)) {
-        printf("unable to parse streamid!\n");
-        return -1;
-    }
-    const char* stream_id = json_string_value(node);
-
-    const char* stream_class = "";
-    node = json_object_get(item, "layoutClass");
-    if (json_is_string(node)) {
-        stream_class = json_string_value(node);
-    }
-
-    const char* video_type = "";
-    node = json_object_get(item, "videoType");
-    if (json_is_string(node)) {
-        video_type = json_string_value(node);
-    }
-    // hack: automatically set stream class 'focus' if
-    // 1) undefined in manifest AND
-    // 2) videoType is 'screen' (eg. probably a screenshare)
-    // TODO: Consider overriding object-fit properties for these stream types
-    if (!strcmp(video_type, "screen") && !strlen(stream_class)) {
-        stream_class = "focus";
-    }
-
-    ret = file_media_source_open(source_out, filename_str, start, stop,
-                                 stream_id, stream_class);
-    printf("parsed archive stream %s\n", filename_str);
-    return ret;
+static void register_layout_event(const struct archive_manifest_s* manifest,
+                                  const struct layout_event_s* event,
+                                  void* p)
+{
+  struct archive_s* pthis = (struct archive_s*)p;
+  double event_offset =
+  (event->created_at - archive_manifest_get_created_at(manifest)) / 1000;
+  if (event_offset > pthis->begin_offset) {
+    pthis->events.push_back(event);
+  }
 }
 
 static int archive_open(struct archive_s* archive)
 {
-    int ret;
-    glob_t globbuf;
-    ret = chdir(archive->source_path);
-    if (ret) {
-        printf("unknown path %s\n", archive->source_path);
-        return -1;
-    }
-    glob("*.json", 0, globerr, &globbuf);
+  int ret;
+  glob_t globbuf;
+  ret = chdir(archive->source_path);
+  if (ret) {
+    printf("unknown path %s\n", archive->source_path);
+    return -1;
+  }
+  glob("*.json", 0, globerr, &globbuf);
 
-    if (!globbuf.gl_pathc) {
-        printf("no json manifest found at %s\n", archive->source_path);
-    }
-    // use the first json file we find inside the archive zip (hopefully only)
-    const char* manifest_path = globbuf.gl_pathv[0];
-    json_t *manifest;
-    json_error_t error;
+  if (!globbuf.gl_pathc) {
+    printf("no json manifest found at %s\n", archive->source_path);
+  }
+  // use the first json file we find inside the archive zip (hopefully only)
+  const char* manifest_path = globbuf.gl_pathv[0];
 
-    manifest = json_load_file(manifest_path, 0, &error);
-    if (!manifest) {
-        printf("Unable to parse json manifest: line %d: %s\n",
-               error.line, error.text);
-        return 1;
-    }
-    json_t* files = json_object_get(manifest, "files");
-
-    if (!json_is_array(files)) {
-        printf("No files declared in manifest\n");
-        return 1;
-    }
-    size_t index;
-    json_t *value;
-    struct file_media_source_s* file_source;
-
-    json_array_foreach(files, index, value) {
-        ret = open_manifest_item(&file_source, value);
-      if (ret) {
-        continue;
-      }
-      if (archive->begin_offset > 0) {
-        file_media_source_seek(file_source, archive->begin_offset);
-      }
-      archive->sources.push_back(file_source);
-    }
-
-    return 0;
+  ret = archive_manifest_parse(archive->manifest, manifest_path);
+  if (ret) {
+    printf("CRITICAL: failed to parse archive manifest.");
+    return ret;
+  }
+  archive_manifest_files_walk(archive->manifest, open_manifest_item, archive);
+  archive_manifest_events_walk(archive->manifest, register_layout_event,
+                               archive);
+  return 0;
 }
+
 #pragma mark - Internal utilities
 static double archive_get_finish_clock_time(struct archive_s* archive)
 {
@@ -232,11 +200,47 @@ static int setup_streams_for_tick(struct archive_s* archive, double clock_time)
   for (struct file_media_source_s* stream : archive->sources) {
     struct barc_source_s barc_source;
     barc_source.media_stream = file_media_source_get_stream(stream);
-    if (file_stream_is_active_at_time(stream, clock_time)) {
+    if (file_stream_is_active_at_time(stream,
+                                      clock_time + archive->begin_offset))
+    {
       barc_add_source(archive->barc, &barc_source);
     } else {
       barc_remove_source(archive->barc, &barc_source);
     }
   }
   return 0;
+}
+
+static void handle_layout_event(struct archive_s* pthis,
+                                const struct layout_event_s* event)
+{
+  if (layout_changed_event == event->action) {
+    barc_set_css_preset(pthis->barc, event->layout_changed.type);
+    barc_set_custom_css(pthis->barc, event->layout_changed.stylesheet);
+  } else if (stream_changed_event == event->action) {
+    for (struct file_media_source_s* source : pthis->sources) {
+      struct media_stream_s* stream = file_media_source_get_stream(source);
+      const char* stream_id = media_stream_get_name(stream);
+      if (!strcmp(stream_id, event->stream_changed.stream_id)) {
+        media_stream_set_class(stream, event->stream_changed.layout_class);
+      }
+    }
+  }
+}
+
+static void process_layout_events(struct archive_s* pthis,
+                                  double clock_time)
+{
+  double event_offset;
+  for (const struct layout_event_s* event : pthis->events) {
+    event_offset = (event->created_at -
+    archive_manifest_get_created_at(pthis->manifest)) / 1000;
+    // compensate for begin offset
+    event_offset -= pthis->begin_offset;
+    if (event_offset < clock_time) {
+      handle_layout_event(pthis, event);
+      auto index = std::find(pthis->events.begin(), pthis->events.end(), event);
+      pthis->events.erase(index);
+    }
+  }
 }

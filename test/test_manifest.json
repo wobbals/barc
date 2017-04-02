@@ -1,0 +1,86 @@
+{
+   "createdAt" : 1490984250000,
+   "files" : [
+      {
+         "connectionData" : "",
+         "filename" : "6996f52c-daf6-4945-b8e0-e99c531754fe.webm",
+         "size" : 10732932,
+         "startTimeOffset" : 562,
+         "stopTimeOffset" : 373156,
+         "streamId" : "6996f52c-daf6-4945-b8e0-e99c531754fe"
+      },
+      {
+         "connectionData" : "",
+         "filename" : "7784748c-4fe7-4b7f-b5fc-2139689018a9.webm",
+         "size" : 108173917,
+         "startTimeOffset" : 300,
+         "stopTimeOffset" : 373740,
+         "streamId" : "7784748c-4fe7-4b7f-b5fc-2139689018a9"
+      },
+      {
+         "connectionData" : "",
+         "filename" : "dd1ada35-7da6-43bc-926f-4f0d85316ccf.webm",
+         "size" : 39203964,
+         "startTimeOffset" : 439,
+         "stopTimeOffset" : 373420,
+         "streamId" : "dd1ada35-7da6-43bc-926f-4f0d85316ccf"
+      },
+      {
+         "connectionData" : "",
+         "filename" : "4d29a5b7-bb61-4705-a890-32c55f8983fb.webm",
+         "size" : 10034370,
+         "startTimeOffset" : 359,
+         "stopTimeOffset" : 374127,
+         "streamId" : "4d29a5b7-bb61-4705-a890-32c55f8983fb"
+      },
+      {
+         "connectionData" : "",
+         "filename" : "3137a1a9-6ef9-44e6-bf21-e85313e57ca9.webm",
+         "size" : 91024671,
+         "startTimeOffset" : 1085,
+         "stopTimeOffset" : 377145,
+         "streamId" : "3137a1a9-6ef9-44e6-bf21-e85313e57ca9"
+      },
+      {
+         "connectionData" : "",
+         "filename" : "5542cdca-d8e1-4855-9765-661161f607e9.webm",
+         "size" : 100616643,
+         "startTimeOffset" : 715,
+         "stopTimeOffset" : 374524,
+         "streamId" : "5542cdca-d8e1-4855-9765-661161f607e9"
+      }
+   ],
+   "layoutEvents" : 
+   [
+     {
+       "createdAt" : 1490984255000,
+       "action" : "layoutChanged",
+       "layout":
+       {
+         "type": "custom",
+         "stylesheet": "stream { float:left; width: 10%; height: 20%; }"
+       }
+     },
+     {
+       "createdAt" : 1490984260000,
+       "action" : "layoutChanged",
+       "layout":
+       {
+         "type": "verticalPresentation"
+       }
+     },
+     {
+       "createdAt" : 1490984265000,
+       "action" : "streamChanged",
+       "stream" : 
+       {
+         "id": "3137a1a9-6ef9-44e6-bf21-e85313e57ca9",
+         "videoType": "camera",                      
+         "layoutClassList": ["focus", "jimbo", "francis"]
+       }
+     }
+   ],
+   "id" : "145e08ee-8ba5-4063-8e48-30b4e59318ca",
+   "name" : "SAMPLE_ARCHIVE_NAME",
+   "sessionId" : "SAMPLE_SESSION_ID"
+}

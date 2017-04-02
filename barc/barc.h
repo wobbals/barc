@@ -27,8 +27,9 @@ struct barc_source_s {
   struct media_stream_s* media_stream;
 };
 
-//alloc
-//free
+/** Static initializers for dependencies need to run before setting up barc */
+void barc_bootstrap();
+
 void barc_alloc(struct barc_s** barc_out);
 void barc_free(struct barc_s* barc);
 // set the outfile and media configuration
@@ -44,5 +45,8 @@ int barc_remove_source(struct barc_s* barc, struct barc_source_s* source);
 
 int barc_tick(struct barc_s* barc);
 double barc_get_current_clock(struct barc_s* barc);
+
+void barc_set_css_preset(struct barc_s* barc, const char* css_preset);
+void barc_set_custom_css(struct barc_s* barc, const char* custom_css);
 
 #endif /* barc_h */

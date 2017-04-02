@@ -12,6 +12,7 @@
 
 #include <libavutil/frame.h>
 #include <MagickWand/MagickWand.h>
+#include <MagickWand/magick-image.h>
 #include "object_fit.h"
 
 int magic_frame_start(MagickWand** dest_wand,
@@ -20,6 +21,7 @@ int magic_frame_add(MagickWand* output_wand,
                     AVFrame* input_frame,
                     size_t x_offset,
                     size_t y_offset,
+                    int radius,
                     size_t output_width,
                     size_t output_height,
                     enum object_fit object_fit);

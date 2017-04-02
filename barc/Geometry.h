@@ -160,8 +160,10 @@ enum StreamFit {
 
 struct ComposerLayoutStreamPosition {
     ComposerLayoutStreamPosition() = default;
-    ComposerLayoutStreamPosition(std::string id, int x, int y, int z, int w, int h, StreamFit f = StreamFit::kContain)
-    : stream_id{id}, x{x}, y{y}, z{z}, width{w}, height{h}, fit(f) {}
+    ComposerLayoutStreamPosition(std::string id, int x, int y, int z, int r,
+                                 int w, int h,
+                                 StreamFit f = StreamFit::kContain)
+    : stream_id{id}, x{x}, y{y}, z{z}, radius(r), width{w}, height{h}, fit(f) {}
     std::string stream_id;
     int x = 0;
     int y = 0;
@@ -169,13 +171,15 @@ struct ComposerLayoutStreamPosition {
     int width = 0;
     int height = 0;
     StreamFit fit = kContain;
+  int radius = 0;
 
     std::string serialize() {
         std::stringstream serialization;
         serialization <<
         "x: " << x << ", " <<
         "y: " << y << ", " <<
-        "z: " << z << ", " <<
+      "z: " << z << ", " <<
+      "r: " << radius << ", " <<
         "width: " << width << ", " <<
         "height: " << height << ", " <<
         "fit: " << fit;

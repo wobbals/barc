@@ -153,10 +153,12 @@ void CssLayoutEngine::draw_object(litehtml::uint_ptr hdc, const litehtml::positi
 //                  << " " << root << " " << element_id;
     int height = pos.height;
     int width = pos.width;
-
+  
     stream_positions_[element_id] = {element_id,
         pos.x, pos.y, static_cast<int>(stream_positions_.size()),
-        width, height, (StreamFit) object_fit};
+// This could be improved by checking all of the radii values.
+      borders.radius.top_left_x,
+      width, height, (StreamFit) object_fit};
 }
 
 std::shared_ptr<litehtml::element> CssLayoutEngine::create_element(const litehtml::tchar_t *tag_name,

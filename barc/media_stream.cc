@@ -28,14 +28,10 @@ static void insert_silence(struct media_stream_s* stream,
 
 struct media_stream_s {
   // media sources
-  media_stream_get_frame_cb* audio_read_cb;
+  media_stream_get_audio_frame_cb* audio_read_cb;
   void* audio_read_arg;
   media_stream_get_video_frame_cb* video_read_cb;
   void* video_read_arg;
-  archive_get_config_cb* audio_config_cb;
-  void* audio_config_arg;
-  archive_get_config_cb* video_config_cb;
-  void* video_config_arg;
 
   const char* sz_name;
   const char* sz_class;
@@ -43,6 +39,7 @@ struct media_stream_s {
   int source_height;
   int x_offset;
   int y_offset;
+  int radius;
   int z_index;
   int render_width;
   int render_height;
@@ -58,24 +55,10 @@ void media_stream_set_video_read(struct media_stream_s* stream,
 }
 
 void media_stream_set_audio_read(struct media_stream_s* stream,
-                                   media_stream_get_frame_cb* cb, void* p)
+                                   media_stream_get_audio_frame_cb* cb, void* p)
 {
   stream->audio_read_cb = cb;
   stream->audio_read_arg = p;
-}
-
-void media_stream_set_audio_config_callback
-(struct media_stream_s* stream, archive_get_config_cb* cb, void* p)
-{
-  stream->audio_config_cb = cb;
-  stream->audio_read_arg = p;
-}
-
-void media_stream_set_video_config_callback
-(struct media_stream_s* stream, archive_get_config_cb* cb, void* p)
-{
-  stream->video_config_cb = cb;
-  stream->video_config_arg = p;
 }
 
 # pragma mark - memory lifecycle
@@ -238,4 +221,12 @@ const char* media_stream_get_name(struct media_stream_s* stream) {
 
 const char* media_stream_get_class(struct media_stream_s* stream) {
     return stream->sz_class;
+}
+
+int archive_stream_get_radius(struct media_stream_s* stream) {
+  return stream->radius;
+}
+
+void archive_stream_set_radius(struct media_stream_s* stream, int radius) {
+  stream->radius = radius;
 }

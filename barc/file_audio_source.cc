@@ -46,7 +46,7 @@ void file_audio_source_alloc(struct file_audio_source_s** source_out) {
   calloc(1, sizeof(struct file_audio_source_s));
   pthis->audio_frame_fifo = std::deque<AVFrame*>();
   // should this be dynamically sized?
-  pthis->audio_sample_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_S16, 1, 4098);
+  pthis->audio_sample_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_S16, 1, 4096);
   pthis->sample_head_time = 0.;
   *source_out = pthis;
 }

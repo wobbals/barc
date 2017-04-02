@@ -6,6 +6,7 @@
 //
 
 extern "C" {
+#include <MagickWand/MagickWand.h>
 #include "barc.h"
 #include "file_writer.h"
 #include "media_stream.h"
@@ -41,6 +42,13 @@ struct barc_s {
 static int tick_audio(struct barc_s* barc);
 static void compute_audio_times(struct barc_s* barc);
 
+void barc_bootstrap() {
+  av_register_all();
+  av_register_all();
+  avfilter_register_all();
+  MagickWandGenesis();
+}
+
 #pragma mark - Memory lifecycle
 
 void barc_alloc(struct barc_s** barc_out) {
@@ -51,9 +59,8 @@ void barc_alloc(struct barc_s** barc_out) {
 }
 
 void barc_free(struct barc_s* barc) {
-  for (struct media_stream_s* stream : barc->streams) {
-    media_stream_free(stream);
-  }
+  // barc doesn't own the reference on streams added to it, so do not free here.
+  barc->streams.clear();
   video_mixer_free(barc->video_mixer);
   file_writer_free(barc->file_writer);
   free(barc);
@@ -107,7 +114,7 @@ int barc_add_source(struct barc_s* barc, struct barc_source_s* source) {
 //remove stream this must be safely repeatable.
 int barc_remove_source(struct barc_s* barc, struct barc_source_s* source) {
   auto index = std::find(barc->streams.begin(), barc->streams.end(),
-                           source->media_stream);
+                         source->media_stream);
   if (index != barc->streams.end()) {
     barc->streams.erase(index);
   }
@@ -165,9 +172,21 @@ int barc_tick(struct barc_s* barc) {
   return aret & vret;
 }
 
+#pragma mark - Getters & Setters
+
 double barc_get_current_clock(struct barc_s* barc) {
   return barc->global_clock;
 }
+
+void barc_set_css_preset(struct barc_s* barc, const char* css_preset) {
+  video_mixer_set_css_preset(barc->video_mixer, css_preset);
+}
+
+void barc_set_custom_css(struct barc_s* barc, const char* custom_css) {
+  video_mixer_set_css_custom(barc->video_mixer, custom_css);
+}
+
+#pragma mark - Internal Utilities
 
 static int tick_audio(struct barc_s* barc)
 {

@@ -85,6 +85,7 @@ static int populate_stream_coords(struct video_mixer_s* pthis)
                   media_stream_get_name(stream))) {
         archive_stream_set_offset_x(stream, position.x);
         archive_stream_set_offset_y(stream, position.y);
+        archive_stream_set_radius(stream, position.radius);
         archive_stream_set_render_width(stream, position.width);
         archive_stream_set_render_height(stream, position.height);
         archive_stream_set_object_fit(stream,
@@ -175,6 +176,7 @@ int video_mixer_async_push_frame(struct video_mixer_s* mixer,
     subframe.smart_frame = smart_frame;
     subframe.x_offset = archive_stream_get_offset_x(stream);
     subframe.y_offset = archive_stream_get_offset_y(stream);
+    subframe.radius = archive_stream_get_radius(stream);
     subframe.render_width = archive_stream_get_render_width(stream);
     subframe.render_height = archive_stream_get_render_height(stream);
     // TODO: configurable from the manifest
@@ -213,7 +215,7 @@ void video_mixer_set_css_preset(struct video_mixer_s* mixer,
 
   std::string style_sheet;
   if (NULL == css_preset) {
-    printf("No stylesheet preset defined. Using auto.");
+    printf("Video Mixer: no stylesheet preset defined. using auto.\n");
     mixer->auto_layout = 1;
     style_sheet = Layout::kBestfitCss;
   } else if (!strcmp("bestFit", css_preset)) {
