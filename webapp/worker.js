@@ -50,6 +50,7 @@ queue.process('job', function(job, done) {
     processJob(job, done);
   } catch (err) {
     done(err);
+    tryPostback(job.data.callbackURL, job.id, "error - process failure");
   }
 });
 
@@ -65,11 +66,13 @@ var processJob = function(job, done) {
         processArchive(job, done, downloadedArchivePath, requestArgs);
       } else {
         done("Failed to download archive");
+        tryPostback(job.data.callbackURL, job.id, "error - archive download");
       }
     });
   } else {
     debug("No archiveURL. Abort.");
     done("Missing archiveURL.");
+    tryPostback(job.data.callbackURL, job.id, "error - missing archiveURL");
   }
 };
 
@@ -151,6 +154,7 @@ var processArchive = function(job, done, archiveLocalPath, requestArgs) {
       uploadArchiveOutput(job, done, archiveOutput);
     } else {
       done(`Process exited with code ${code}`);
+      tryPostback(job.data.callbackURL, job.id, "error - unknown return code");
     }
     // finally, compress the log file and call it a day.
     var gzip = zlib.createGzip();
@@ -234,12 +238,12 @@ var uploadArchiveOutput = function(job, done, archiveOutput) {
     var results = {};
     results.s3_key = key;
     debug(`job ${job.id} completed successfully.`);
-    tryPostback(job.data.callbackURL, job.id);
     done(null, results);
+    tryPostback(job.data.callbackURL, job.id, "success");
   });
 }
 
-var tryPostback = function(callbackURL, jobid) {
+var tryPostback = function(callbackURL, jobid, result) {
   if (!validator.isURL(callbackURL)) {
     return;
   }
@@ -247,7 +251,8 @@ var tryPostback = function(callbackURL, jobid) {
     uri: callbackURL,
     method: 'POST',
     json: {
-      "job": `${jobid}`
+      job: `${jobid}`,
+      result: result
     }
   };
   request(postback_options, function(error, response, body) {

@@ -54,3 +54,4 @@ aspect ratio of the output container.
 
 If a stream is tagged as a screenshare in the manifest via `videoType: screen`,
 and no layout class has been assigned to it, barc will automatically tag the
+element with the `focus` class.

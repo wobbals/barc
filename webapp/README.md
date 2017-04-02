@@ -58,9 +58,14 @@ New jobs can use the same arguments as the CLI tool. These include:
 * `endOffset` -- Truncates output to this timestamp. Useful for creating faster
   jobs during testing or skipping content you do not wish to keep.
 * `callbackURL` -- A URL where the worker will send a POST after the job is
-  completed. Request body will be JSON of the form: `{"job":"132"}`
+  completed. Request body will be JSON of the form:
+  `{"job":"30","result":"success"}`
 
 ## Monitoring job progress
+
+The recommended method for getting job status is by providing `callbackURL` in
+the request to schedule the job. That said, sometimes it's necessary to
+explicitly check for the progress of a job:
 
 `GET /job/:id`
 Gets the status of the job.
