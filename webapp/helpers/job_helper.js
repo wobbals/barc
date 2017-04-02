@@ -58,6 +58,10 @@ var parseJobArgs = function(args) {
     result.endOffset = parseInt(args.endOffset);
   }
   
+  if (validator.isURL(args.callbackURL)) {
+    result.callbackURL = args.callbackURL;
+  }
+  
   return result;
 }
 
