@@ -146,7 +146,11 @@ static void register_layout_event(const struct archive_manifest_s* manifest,
                                   void* p)
 {
   struct archive_s* pthis = (struct archive_s*)p;
-  pthis->events.push_back(event);
+  double event_offset =
+  (event->created_at - archive_manifest_get_created_at(manifest)) / 1000;
+  if (event_offset > pthis->begin_offset) {
+    pthis->events.push_back(event);
+  }
 }
 
 static int archive_open(struct archive_s* archive)
@@ -196,7 +200,9 @@ static int setup_streams_for_tick(struct archive_s* archive, double clock_time)
   for (struct file_media_source_s* stream : archive->sources) {
     struct barc_source_s barc_source;
     barc_source.media_stream = file_media_source_get_stream(stream);
-    if (file_stream_is_active_at_time(stream, clock_time)) {
+    if (file_stream_is_active_at_time(stream,
+                                      clock_time + archive->begin_offset))
+    {
       barc_add_source(archive->barc, &barc_source);
     } else {
       barc_remove_source(archive->barc, &barc_source);
@@ -225,11 +231,13 @@ static void handle_layout_event(struct archive_s* pthis,
 static void process_layout_events(struct archive_s* pthis,
                                   double clock_time)
 {
-  double offset;
+  double event_offset;
   for (const struct layout_event_s* event : pthis->events) {
-    offset = (event->created_at -
+    event_offset = (event->created_at -
     archive_manifest_get_created_at(pthis->manifest)) / 1000;
-    if (offset < clock_time) {
+    // compensate for begin offset
+    event_offset -= pthis->begin_offset;
+    if (event_offset < clock_time) {
       handle_layout_event(pthis, event);
       auto index = std::find(pthis->events.begin(), pthis->events.end(), event);
       pthis->events.erase(index);

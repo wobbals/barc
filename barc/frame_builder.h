@@ -19,6 +19,7 @@ struct frame_builder_subframe_t {
     struct smart_frame_t* smart_frame;
     int x_offset;
     int y_offset;
+  int radius;
     int render_width;
     int render_height;
     enum object_fit object_fit;

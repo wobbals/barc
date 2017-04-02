@@ -50,7 +50,7 @@ struct file_media_source_s {
   AVCodecContext* video_context;
   // indices for dereferencing contexts
   int video_stream_index;
-  double video_ts_offset;
+  double global_seek_offset;
   struct file_audio_source_s* audio_source;
 
   std::queue<struct smart_frame_t*> video_fifo;
@@ -88,7 +88,7 @@ int file_media_source_seek(struct file_media_source_s* pthis,
   file_audio_source_seek(pthis->audio_source, to_time);
   // seek video source
   // TODO: video processing should be in a separate class
-  pthis->video_ts_offset = to_time;
+  pthis->global_seek_offset = to_time;
   return 0;
 }
 
@@ -153,10 +153,16 @@ static int read_video_frame(struct file_media_source_s* pthis)
     if (ret < 0) {
       return ret;
     }
+    double packet_time = (double)packet.pts /
+    pthis->video_format_context->streams[pthis->video_stream_index]->
+    time_base.den;
 
     AVFrame* frame = av_frame_alloc();
     got_frame = 0;
-    if (packet.stream_index == pthis->video_stream_index) {
+    if (packet.stream_index == pthis->video_stream_index &&
+        // don't bother decoding frame if it will never be used
+        pthis->global_seek_offset < packet_time)
+    {
       ret = avcodec_decode_video2(pthis->video_context, frame,
                                   &got_frame, &packet);
       if (ret < 0) {
@@ -236,7 +242,7 @@ double file_stream_get_stop_offset(struct file_media_source_s* pthis)
 {
   // don't forget to update this when seek method is called and video has it's
   // own class!
-  return pthis->stop_offset - pthis->video_ts_offset;
+  return pthis->stop_offset - pthis->global_seek_offset;
 }
 
 struct media_stream_s* file_media_source_get_stream
@@ -279,7 +285,7 @@ int video_read_callback(struct media_stream_s* stream,
                         void* p)
 {
   struct file_media_source_s* pthis = (struct file_media_source_s*)p;
-  time_clock += pthis->video_ts_offset;
+  time_clock += pthis->global_seek_offset;
   int ret = ensure_video_frame(pthis);
   if (ret) {
     *frame_out = NULL;

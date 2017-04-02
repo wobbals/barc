@@ -67,12 +67,9 @@ int archive_stream_get_render_width(struct media_stream_s* stream);
 int archive_stream_get_render_height(struct media_stream_s* stream);
 int archive_stream_get_z_index(const struct media_stream_s* stream);
 enum object_fit archive_stream_get_object_fit(struct media_stream_s* stream);
-void archive_stream_set_offset_x(struct media_stream_s* stream,
-                                 int x_offset);
-void archive_stream_set_offset_y(struct media_stream_s* stream,
-                                 int y_offset);
-void archive_stream_set_render_width(struct media_stream_s* stream,
-                                     int width);
+void archive_stream_set_offset_x(struct media_stream_s* stream, int x_offset);
+void archive_stream_set_offset_y(struct media_stream_s* stream, int y_offset);
+void archive_stream_set_render_width(struct media_stream_s* stream, int width);
 void archive_stream_set_render_height(struct media_stream_s* stream,
                                       int height);
 void archive_stream_set_z_index(struct media_stream_s* stream,
@@ -85,5 +82,7 @@ void media_stream_set_class(struct media_stream_s* stream,
                               const char* sz_class);
 const char* media_stream_get_name(struct media_stream_s* stream);
 const char* media_stream_get_class(struct media_stream_s* stream);
+int archive_stream_get_radius(struct media_stream_s* stream);
+void archive_stream_set_radius(struct media_stream_s* stream, int radius);
 
 #endif /* archive_stream_h */

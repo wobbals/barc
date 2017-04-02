@@ -228,6 +228,7 @@ static void crunch_frame(uv_work_t* work) {
                         smart_frame_get(subframe->smart_frame),
                         subframe->x_offset,
                         subframe->y_offset,
+                        subframe->radius,
                         subframe->render_width,
                         subframe->render_height,
                         subframe->object_fit);

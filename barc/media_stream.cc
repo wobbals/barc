@@ -39,6 +39,7 @@ struct media_stream_s {
   int source_height;
   int x_offset;
   int y_offset;
+  int radius;
   int z_index;
   int render_width;
   int render_height;
@@ -220,4 +221,12 @@ const char* media_stream_get_name(struct media_stream_s* stream) {
 
 const char* media_stream_get_class(struct media_stream_s* stream) {
     return stream->sz_class;
+}
+
+int archive_stream_get_radius(struct media_stream_s* stream) {
+  return stream->radius;
+}
+
+void archive_stream_set_radius(struct media_stream_s* stream, int radius) {
+  stream->radius = radius;
 }

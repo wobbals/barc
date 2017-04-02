@@ -24,6 +24,10 @@ description=(char *) MagickRelinquishMemory(description); \
 exit(-1); \
 }
 
+// why is this not being found by magickwand include?
+MagickBooleanType MagickSetImageMask(MagickWand *wand, const PixelMask type,
+                                     const MagickWand *clip_mask);
+
 int magic_frame_start(MagickWand** output_wand,
                       size_t out_width, size_t out_height)
 {
@@ -38,10 +42,36 @@ int magic_frame_start(MagickWand** output_wand,
     return 0;
 }
 
+static void draw_border_radius(MagickWand* wand, int radius,
+                               size_t width, size_t height)
+{
+  PixelWand* black_pixel = NewPixelWand();
+  PixelSetColor(black_pixel, "#000000");
+  PixelWand* white_pixel = NewPixelWand();
+  PixelSetColor(white_pixel, "#ffffff");
+  DrawingWand* rounded = NewDrawingWand();
+  DrawSetFillColor(rounded, white_pixel);
+  DrawRoundRectangle(rounded, 3, 3, width-6, height-6, radius, radius);
+
+  MagickWand* border = NewMagickWand();
+  MagickNewImage(border, width, height, black_pixel);
+  MagickDrawImage(border, rounded);
+  MagickSetImageMask(wand, ReadPixelMask, border);
+
+  DestroyPixelWand(black_pixel);
+  DestroyPixelWand(white_pixel);
+  DestroyDrawingWand(rounded);
+  DestroyMagickWand(border);
+
+  // Set a transparent background color if you enable vignette (use "none")
+  //MagickVignetteImage(wand, 0, 0, radius, radius);
+}
+
 int magic_frame_add(MagickWand* output_wand,
                     AVFrame* input_frame,
                     size_t x_offset,
                     size_t y_offset,
+                    int radius,
                     size_t output_width,
                     size_t output_height,
                     enum object_fit object_fit)
@@ -120,8 +150,9 @@ int magic_frame_add(MagickWand* output_wand,
                           internal_x_offset, internal_y_offset);
     }
 
-    // Set a transparent background color if you enable vignette (use "none")
-    //MagickVignetteImage(input_wand, 0, 0, 0, 0);
+  if (radius > 0) {
+    draw_border_radius(input_wand, radius, output_width, output_height);
+  }
 
     if (status == MagickFalse)
         ThrowWandException(input_wand);
