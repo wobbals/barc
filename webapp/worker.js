@@ -234,7 +234,24 @@ var uploadArchiveOutput = function(job, done, archiveOutput) {
     var results = {};
     results.s3_key = key;
     debug(`job ${job.id} completed successfully.`);
+    tryPostback(job.data.callbackURL, job.id);
     done(null, results);
+  });
+}
+
+var tryPostback = function(callbackURL, jobid) {
+  if (!validator.isURL(callbackURL)) {
+    return;
+  }
+  var postback_options = {
+    uri: callbackURL,
+    method: 'POST',
+    json: {
+      "job": `${jobid}`
+    }
+  };
+  request(postback_options, function(error, response, body) {
+    debug(`Postback to ${callbackURL} returned code ${response.statusCode}`);
   });
 }
 
