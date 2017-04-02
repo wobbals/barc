@@ -1,0 +1,15 @@
+{
+  "aws_secret":"AWS_SECRET",
+  "aws_token":"AWS_TOKEN",
+  "s3_bucket":"S3_BUCKET",
+  "s3_region":"S3_REGION",
+  "s3_prefix":"S3_PREFIX",
+  "secret_token_salt":"SECRET_TOKEN_SALT",
+  "barc_path": "BARC_PATH",
+  "use_https": "USE_HTTPS",
+  "ssl_cert_path":"SSL_CERT_PATH",
+  "ssl_key_path":"SSL_KEY_PATH",
+  "ssl_chain_path":"SSL_CHAIN_PATH",
+  "redis_host": "REDIS_HOST",
+  "redis_port": "REDIS_PORT"
+}
