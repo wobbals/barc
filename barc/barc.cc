@@ -6,6 +6,7 @@
 //
 
 extern "C" {
+#include <MagickWand/MagickWand.h>
 #include "barc.h"
 #include "file_writer.h"
 #include "media_stream.h"
@@ -40,6 +41,13 @@ struct barc_s {
 
 static int tick_audio(struct barc_s* barc);
 static void compute_audio_times(struct barc_s* barc);
+
+void barc_bootstrap() {
+  av_register_all();
+  av_register_all();
+  avfilter_register_all();
+  MagickWandGenesis();
+}
 
 #pragma mark - Memory lifecycle
 

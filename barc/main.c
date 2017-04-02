@@ -103,15 +103,13 @@ int main(int argc, char **argv)
     if (!out_height) {
         out_height = 480;
     }
-
+  
+  barc_bootstrap();
     //av_log_set_level(AV_LOG_VERBOSE);
     //av_log_set_callback(my_log_callback);
 
     int ret;
     time_t start_time = time(NULL);
-    av_register_all();
-  avfilter_register_all();
-    MagickWandGenesis();
 
     struct stat file_stat;
     stat(input_path, &file_stat);

@@ -27,8 +27,9 @@ struct barc_source_s {
   struct media_stream_s* media_stream;
 };
 
-//alloc
-//free
+/** Static initializers for dependencies need to run before setting up barc */
+void barc_bootstrap();
+
 void barc_alloc(struct barc_s** barc_out);
 void barc_free(struct barc_s* barc);
 // set the outfile and media configuration
