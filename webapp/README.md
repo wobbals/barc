@@ -53,7 +53,12 @@ New jobs can use the same arguments as the CLI tool. These include:
 * `cssPreset` -- one of the presets defined in the command line utility.
 * `customCSS` -- if `custom` is used in the `css_preset` argument, then you
   should specify a CSS stylesheet string here.
-* `beginPffset`
+* `beginOffset` -- Seeks forward in the output a number of seconds before
+  beginning to process. Useful for skipping content you don't wish to keep.
+* `endOffset` -- Truncates output to this timestamp. Useful for creating faster
+  jobs during testing or skipping content you do not wish to keep.
+* `callbackURL` -- A URL where the worker will send a POST after the job is
+  completed. Request body will be JSON of the form: `{"job":"132"}`
 
 ## Monitoring job progress
 
