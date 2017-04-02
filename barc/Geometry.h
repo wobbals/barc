@@ -83,17 +83,22 @@ height: 100%;
 width: 80%;
 })";
 
-const std::string kSquareTopPresentation =
+const std::string kCircleTopPresentation =
 R"(stream {
 float:left;
 left: 0px;
-width: 32.333%;
-height: 20%;
+width: 120px;
+height: 120px;
+border-radius: 120px;
+object-fit: cover;
 padding: 0.5%;
-z-index: 1;
+z-index: 200;
 }
 stream.focus {
 position: absolute;
+border-radius: 0px;
+object-fit: contain;
+padding: 0.5%;
 padding: 0px;
 bottom: 0;
 right: 0;
@@ -101,13 +106,13 @@ margin: 0px;
 left: 0%;
 height: 100%;
 width: 100%;
-z-index: 0;
+z-index: 100;
 })";
 
-// This CSS only supports up to 3x3 streams. This should be synced with the configuration file in Anvil in the future.
-    const std::string kBestfitCss =
-    R"(stream {
-    float: left;
+// This CSS only supports up to 3x3 streams.
+const std::string kBestfitCss =
+R"(stream {
+float: left;
 object-fit: cover;
 }
 stream:first-child:nth-last-child(1) {
@@ -138,8 +143,8 @@ stream:first-child:nth-last-child(8) ~ stream,
 stream:first-child:nth-last-child(9),
 stream:first-child:nth-last-child(9) ~ stream
 {
-width: 33.33%;
-height: 33.33%;
+width: 33.2%;
+height: 33.2%;
 })";
 }  // namespace Layout
 

@@ -80,8 +80,8 @@ void media_stream_set_name(struct media_stream_s* stream,
                              const char* sz_name);
 void media_stream_set_class(struct media_stream_s* stream,
                               const char* sz_class);
-const char* media_stream_get_name(struct media_stream_s* stream);
-const char* media_stream_get_class(struct media_stream_s* stream);
+const char* media_stream_get_name(const struct media_stream_s* stream);
+const char* media_stream_get_class(const struct media_stream_s* stream);
 int archive_stream_get_radius(struct media_stream_s* stream);
 void archive_stream_set_radius(struct media_stream_s* stream, int radius);
 

@@ -215,11 +215,11 @@ void media_stream_set_class(struct media_stream_s* stream,
   stream->sz_class = sz_class;
 }
 
-const char* media_stream_get_name(struct media_stream_s* stream) {
+const char* media_stream_get_name(const struct media_stream_s* stream) {
     return stream->sz_name;
 }
 
-const char* media_stream_get_class(struct media_stream_s* stream) {
+const char* media_stream_get_class(const struct media_stream_s* stream) {
     return stream->sz_class;
 }
 

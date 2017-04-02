@@ -24,11 +24,21 @@ struct video_mixer_s {
   size_t out_height;
 };
 
+/* this runs backwards from a normal sort comparator
+ because we need the lowest images added first. */
 static bool z_index_sort(const struct media_stream_s* stream1,
                          const struct media_stream_s* stream2)
 {
-  return (archive_stream_get_z_index(stream1) <
-          archive_stream_get_z_index(stream2));
+  int z1 = archive_stream_get_z_index(stream1);
+  int z2 = archive_stream_get_z_index(stream2);
+  if (z1 != z2) {
+    return z1 < z2;
+  } else {
+    // extra comparator for streamid so that streams of the same z-index don't
+    // get switched
+    return strcmp(media_stream_get_name(stream1),
+                  media_stream_get_name(stream2)) > 0;
+  }
 }
 
 static void do_auto_layout(struct video_mixer_s* pthis,
@@ -63,8 +73,6 @@ void video_mixer_alloc(struct video_mixer_s** mixer_out) {
 
 static int populate_stream_coords(struct video_mixer_s* pthis)
 {
-  std::sort(pthis->streams.begin(), pthis->streams.end(), z_index_sort);
-
   // Regenerate stream list every tick to allow on-the-fly layout changes
   std::vector<ArchiveStreamInfo> stream_info;
   for (struct media_stream_s* stream : pthis->streams) {
@@ -144,20 +152,23 @@ void video_mixer_clear_streams(struct video_mixer_s* mixer) {
   mixer->streams.clear();
 }
 
-int video_mixer_async_push_frame(struct video_mixer_s* mixer,
+int video_mixer_async_push_frame(struct video_mixer_s* pthis,
                                  struct file_writer_t* file_writer,
                                  double time_clock, int64_t pts)
 {
   int ret = -1;
 
-  populate_stream_coords(mixer);
+  populate_stream_coords(pthis);
+  // z sort only after layout manager has run
+  std::sort(pthis->streams.begin(), pthis->streams.end(), z_index_sort);
+  std::reverse(pthis->streams.begin(), pthis->streams.end());
 
   struct frame_builder_callback_data_t* callback_data =
   (struct frame_builder_callback_data_t*)
   malloc(sizeof(struct frame_builder_callback_data_t));
   callback_data->pts = pts;
   callback_data->file_writer = file_writer;
-  frame_builder_begin_frame(mixer->frame_builder,
+  frame_builder_begin_frame(pthis->frame_builder,
                             file_writer->out_width,
                             file_writer->out_height,
                             (enum AVPixelFormat)AV_PIX_FMT_YUV420P,
@@ -165,7 +176,7 @@ int video_mixer_async_push_frame(struct video_mixer_s* mixer,
 
 
   // append source frames to magic frame
-  for (struct media_stream_s* stream : mixer->streams) {
+  for (struct media_stream_s* stream : pthis->streams) {
     struct smart_frame_t* smart_frame;
     ret = archive_stream_get_video_for_time(stream, &smart_frame, time_clock);
     if (NULL == smart_frame || ret) {
@@ -182,9 +193,9 @@ int video_mixer_async_push_frame(struct video_mixer_s* mixer,
     // TODO: configurable from the manifest
     subframe.object_fit = archive_stream_get_object_fit(stream);
 
-    frame_builder_add_subframe(mixer->frame_builder, &subframe);
+    frame_builder_add_subframe(pthis->frame_builder, &subframe);
   }
-  frame_builder_finish_frame(mixer->frame_builder, frame_builder_cb);
+  frame_builder_finish_frame(pthis->frame_builder, frame_builder_cb);
   return ret;
 }
 
@@ -220,6 +231,8 @@ void video_mixer_set_css_preset(struct video_mixer_s* mixer,
     style_sheet = Layout::kBestfitCss;
   } else if (!strcmp("bestFit", css_preset)) {
     style_sheet = Layout::kBestfitCss;
+  } else if (!strcmp("circleTopPresentation", css_preset)) {
+    style_sheet = Layout::kCircleTopPresentation;
   } else if (!strcmp("verticalPresentation", css_preset)) {
     style_sheet = Layout::kVerticalPresentation;
   } else if (!strcmp("horizontalPresentation", css_preset)) {

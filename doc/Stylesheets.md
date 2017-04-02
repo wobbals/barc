@@ -5,7 +5,7 @@
 There are several layouts available as preset parameters, loosely modeled after
 the presets defined in https://tokbox.com/developer/beta/archive-custom-layout/
 
-Notable additions include preset `auto` -- which will selectively use different
+A notable addition is the preset `auto`, which will selectively use different
 presets from the above. At each frame, a layout is chosen by the following
 rubric: 
 
@@ -18,8 +18,16 @@ rubric:
 
 ## CSS Attributes
 
+### border-radius
+
 Use `border-radius` to round the edges of a stream. Setting this value equal
 to the height and width of the stream will produce a circle.
+
+| ![border-radius](http://imgur.com/x90zlYj.png) |
+|:---:|
+| border-radius == width == height |
+
+### object-fit
 
 Use `object-fit` to define scaling behavior. The most common values are
 `contain`, which will show all pixels from the source stream at the expense of

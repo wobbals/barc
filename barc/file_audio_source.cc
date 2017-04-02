@@ -89,14 +89,10 @@ int file_audio_source_seek(struct file_audio_source_s* pthis, double to_time)
   // this is a destructive loop: don't call this method if you need to read
   // every packet from the file!
   while (!ret && pthis->sample_head_time < to_time) {
-    av_read_frame(pthis->format_context, &pkt);
+    ret = av_read_frame(pthis->format_context, &pkt);
     pthis->sample_head_time = (double)pkt.pts / format_time_base.den;
     av_packet_unref(&pkt);
   }
-  if (ret) {
-    return ret;
-  }
-
   return ret;
 }
 
