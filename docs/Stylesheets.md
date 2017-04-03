@@ -18,6 +18,15 @@ rubric:
 
 ## CSS Attributes
 
+### border
+
+The `solid` border type is supported. See quirks below.
+
+
+| ![borders](http://imgur.com/wqxOGrP.png) |
+|:---:|
+| `border-radius: 10px; border: 6px solid #FFCC00;` |
+
 ### border-radius
 
 Use `border-radius` to round the edges of a stream. Setting this value equal
@@ -25,7 +34,8 @@ to the height and width of the stream will produce a circle.
 
 | ![border-radius](http://imgur.com/x90zlYj.png) |
 |:---:|
-| border-radius == width == height |
+| `border-radius: 120px; width: 120px; height: 120px;` |
+
 
 ### object-fit
 
@@ -56,10 +66,23 @@ stream.unfocus {
 In proper CSS, stream elements matching the `unfocus` class would render as
 squares, equal in height and width to 20% of the parent container's width (the
 output rendering size). In barc, this spec will produce elements that match the
-aspect ratio of the output container.
+aspect ratio of the container view. Using the same example, a 1280x720 pixel
+container will have 256x144 pixel stream elements with the `unfocus` class.
 
 ### Automatic focus assignment
 
 If a stream is tagged as a screenshare in the manifest via `videoType: screen`,
 and no layout class has been assigned to it, barc will automatically tag the
 element with the `focus` class.
+
+### Borders
+
+Even if `border: none` is specified, a non-zero (inherited) border thickness
+will produce padding and can move the stream element. Use `border: 0px` to clear
+border inheritence.
+
+Only the `solid` border style is supported.
+
+In order to properly handle image masking, border thickness is computed by
+shrinking the element and applying a backdrop, not a traditional stroke. As a
+result, the pixel thickness might not look the same as it would in a browser.

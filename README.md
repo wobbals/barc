@@ -14,6 +14,8 @@ media from the archive. Features include:
 
 # Archive layout presets
 
+For full documentation on layout usage, see [Stylesheets](docs/Stylesheets.md).
+
 ## Best fit
 Automatically tries to fit as much content as possible to the viewport.
 

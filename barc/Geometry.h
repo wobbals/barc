@@ -89,10 +89,10 @@ float:left;
 width: 120px;
 height: 120px;
 border-radius: 120px;
-border: 6px solid #CCCCCC;
+border: 8px solid #CCCCCC;
 object-fit: cover;
-padding: 0.5%;
-z-index: 200;
+padding: 5px;
+z-index: 1;
 }
 stream.focus {
 position: absolute;
@@ -106,7 +106,7 @@ right: 0;
 left: 0%;
 height: 100%;
 width: 100%;
-z-index: 100;
+z-index: 0;
 })";
 
 // This CSS only supports up to 3x3 streams.
