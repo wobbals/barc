@@ -86,23 +86,23 @@ width: 80%;
 const std::string kCircleTopPresentation =
 R"(stream {
 float:left;
-left: 0px;
 width: 120px;
 height: 120px;
 border-radius: 120px;
+border: 6px solid #CCCCCC;
 object-fit: cover;
 padding: 0.5%;
 z-index: 200;
 }
 stream.focus {
 position: absolute;
-border-radius: 0px;
+border-radius: 0px none;
+border: 0px none;
 object-fit: contain;
-padding: 0.5%;
 padding: 0px;
+margin: 0px;
 bottom: 0;
 right: 0;
-margin: 0px;
 left: 0%;
 height: 100%;
 width: 100%;
@@ -166,9 +166,12 @@ enum StreamFit {
 struct ComposerLayoutStreamPosition {
     ComposerLayoutStreamPosition() = default;
     ComposerLayoutStreamPosition(std::string id, int x, int y, int z, int r,
+                                 int border_width,
+                                 struct litehtml::web_color border_color,
                                  int w, int h,
                                  StreamFit f = StreamFit::kContain)
-    : stream_id{id}, x{x}, y{y}, z{z}, radius(r), width{w}, height{h}, fit(f) {}
+    : stream_id{id}, x{x}, y{y}, z{z}, radius(r), width{w}, height{h},
+  border_width(border_width), border_color(border_color), fit(f) {}
     std::string stream_id;
     int x = 0;
     int y = 0;
@@ -177,6 +180,8 @@ struct ComposerLayoutStreamPosition {
     int height = 0;
     StreamFit fit = kContain;
   int radius = 0;
+  int border_width = 0;
+  struct litehtml::web_color border_color;
 
     std::string serialize() {
         std::stringstream serialization;
@@ -185,6 +190,7 @@ struct ComposerLayoutStreamPosition {
         "y: " << y << ", " <<
       "z: " << z << ", " <<
       "r: " << radius << ", " <<
+      "border: " << border_width << ", " <<
         "width: " << width << ", " <<
         "height: " << height << ", " <<
         "fit: " << fit;

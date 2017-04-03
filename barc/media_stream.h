@@ -16,6 +16,14 @@
 
 struct media_stream_s;
 
+struct border_s {
+  int radius;
+  int width;
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
+};
+
 #pragma mark - media sources
 
 /**
@@ -82,7 +90,8 @@ void media_stream_set_class(struct media_stream_s* stream,
                               const char* sz_class);
 const char* media_stream_get_name(const struct media_stream_s* stream);
 const char* media_stream_get_class(const struct media_stream_s* stream);
-int archive_stream_get_radius(struct media_stream_s* stream);
-void archive_stream_set_radius(struct media_stream_s* stream, int radius);
+const struct border_s* media_stream_get_border(struct media_stream_s* stream);
+void media_stream_set_border(struct media_stream_s* stream,
+                               const struct border_s* border);
 
 #endif /* archive_stream_h */

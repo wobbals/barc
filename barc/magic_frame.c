@@ -42,6 +42,35 @@ int magic_frame_start(MagickWand** output_wand,
     return 0;
 }
 
+static void draw_border_stroke(MagickWand* wand, size_t width, size_t height,
+                               double thickness, double red, double green,
+                               double blue)
+{
+  PixelWand* stroke_color = NewPixelWand();
+  PixelSetRed(stroke_color, red / 255);
+  PixelSetGreen(stroke_color, green / 255);
+  PixelSetBlue(stroke_color, blue / 255);
+  PixelWand* transparent_color = NewPixelWand();
+  PixelSetColor(transparent_color, "white");
+  MagickWand* mask = MagickGetImageMask(wand, ReadPixelMask);
+  MagickWand* stroke_wand = NewMagickWand();
+  MagickNewImage(stroke_wand, width, height, transparent_color);
+  MagickAddImage(stroke_wand, mask);
+
+  MagickScaleImage(wand, width - thickness, height - thickness);
+
+  MagickSetImageMask(stroke_wand, ReadPixelMask, mask);
+  MagickFloodfillPaintImage(stroke_wand, stroke_color, 150, stroke_color,
+                            thickness/2, thickness/2, MagickTrue);
+  MagickCompositeImage(stroke_wand, wand, OverCompositeOp, MagickTrue,
+                       thickness / 2, thickness/2);
+  MagickRemoveImage(wand);
+  MagickAddImage(wand, stroke_wand);
+  DestroyMagickWand(stroke_wand);
+  DestroyPixelWand(transparent_color);
+  DestroyPixelWand(stroke_color);
+}
+
 static void draw_border_radius(MagickWand* wand, int radius,
                                size_t width, size_t height)
 {
@@ -51,7 +80,7 @@ static void draw_border_radius(MagickWand* wand, int radius,
   PixelSetColor(white_pixel, "#ffffff");
   DrawingWand* rounded = NewDrawingWand();
   DrawSetFillColor(rounded, white_pixel);
-  DrawRoundRectangle(rounded, 3, 3, width-6, height-6, radius, radius);
+  DrawRoundRectangle(rounded, 1, 1, width-1, height-1, radius, radius);
 
   MagickWand* border = NewMagickWand();
   MagickNewImage(border, width, height, black_pixel);
@@ -62,16 +91,13 @@ static void draw_border_radius(MagickWand* wand, int radius,
   DestroyPixelWand(white_pixel);
   DestroyDrawingWand(rounded);
   DestroyMagickWand(border);
-
-  // Set a transparent background color if you enable vignette (use "none")
-  //MagickVignetteImage(wand, 0, 0, radius, radius);
 }
 
 int magic_frame_add(MagickWand* output_wand,
                     AVFrame* input_frame,
                     size_t x_offset,
                     size_t y_offset,
-                    int radius,
+                    struct border_s border,
                     size_t output_width,
                     size_t output_height,
                     enum object_fit object_fit)
@@ -150,8 +176,13 @@ int magic_frame_add(MagickWand* output_wand,
                           internal_x_offset, internal_y_offset);
     }
 
-  if (radius > 0) {
-    draw_border_radius(input_wand, radius, output_width, output_height);
+  if (border.radius > 0) {
+    draw_border_radius(input_wand, border.radius, output_width, output_height);
+  }
+
+  if (border.width > 0) {
+    draw_border_stroke(input_wand, output_width, output_height,
+                       border.width, border.red, border.green, border.blue);
   }
 
     if (status == MagickFalse)
