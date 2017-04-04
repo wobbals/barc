@@ -244,7 +244,7 @@ var uploadArchiveOutput = function(job, done, archiveOutput) {
 }
 
 var tryPostback = function(callbackURL, jobid, result) {
-  if (!validator.isURL(callbackURL)) {
+  if (!callbackURL || !validator.isURL(callbackURL)) {
     return;
   }
   var postback_options = {
