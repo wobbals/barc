@@ -28,8 +28,8 @@ int main(int argc, char **argv)
     char* manifest_supplemental = NULL;
     int out_width = 0;
     int out_height = 0;
-    int64_t begin_offset = -1;
-    int64_t end_offset = -1;
+    int64_t begin_offset = 0;
+    int64_t end_offset = 0;
     int c;
 
     static struct option long_options[] =

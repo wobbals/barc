@@ -21,7 +21,7 @@ int file_audio_source_load_config(struct file_audio_source_s* source,
 int file_audio_source_seek(struct file_audio_source_s* source, double to_time);
 double file_audio_source_get_pos(struct file_audio_source_s* source);
 int file_audio_source_get_next(struct file_audio_source_s* source,
-                               int num_samples,
-                               int16_t* samples);
+                               int num_samples, int16_t* samples);
+double file_audio_source_get_sample_rate(struct file_audio_source_s* source);
 
 #endif /* file_audio_source_h */

@@ -326,6 +326,19 @@ int audio_read_callback(struct media_stream_s* stream,
   struct file_media_source_s* pthis = (struct file_media_source_s*)p;
   int ret = 0;
 
+  double audio_time =
+  file_audio_source_get_pos(pthis->audio_source) + pthis->start_offset;
+  double sample_rate = file_audio_source_get_sample_rate(pthis->audio_source);
+  int num_desync_samples = (clock_time - audio_time) * sample_rate;
+  if (audio_time < clock_time && num_desync_samples > 0) {
+    printf("lipsync: dropping %d audio samples to catch up with clock\n",
+           num_desync_samples);
+    int16_t* drop_samples = (int16_t*)calloc(num_desync_samples, sizeof(int16_t));
+    file_audio_source_get_next(pthis->audio_source, num_desync_samples, drop_samples);
+    // is there an easy way to do this without the malloc cycle?
+    free(drop_samples);
+  }
+
   assert(frame->format == AV_SAMPLE_FMT_S16);
   ret = file_audio_source_get_next(pthis->audio_source,
                                    frame->nb_samples,

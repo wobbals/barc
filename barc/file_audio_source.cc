@@ -119,6 +119,10 @@ int file_audio_source_get_next(struct file_audio_source_s* pthis,
   return ret;
 }
 
+double file_audio_source_get_sample_rate(struct file_audio_source_s* pthis) {
+  return pthis->codec_context->time_base.den;
+}
+
 #pragma mark - Internal utilities
 
 static int open_file_stream(struct file_audio_source_s* pthis)
