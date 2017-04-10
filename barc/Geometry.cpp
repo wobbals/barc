@@ -98,7 +98,9 @@ void StreamElement::draw(litehtml::uint_ptr hdc, int x, int y, const litehtml::p
 
     litehtml::position border_box = pos;
     border_box += m_padding;
+  if (m_css_borders.top.style) {
     border_box += m_borders;
+  }
 
     litehtml::borders bdr = m_css_borders;
 
@@ -158,6 +160,10 @@ void CssLayoutEngine::draw_object(litehtml::uint_ptr hdc, const litehtml::positi
         pos.x, pos.y, static_cast<int>(stream_positions_.size()),
 // This could be improved by checking all of the radii values.
       borders.radius.top_left_x,
+      // Similarly, this whole method of passing layout information back to the
+      // video mixer needs to be refactored.
+      borders.left.style ? borders.left.width : 0,
+      borders.left.color,
       width, height, (StreamFit) object_fit};
 }
 

@@ -12,6 +12,7 @@
 #include <libavutil/frame.h>
 #include "smart_avframe.h"
 #include "object_fit.h"
+#include "media_stream.h"
 
 struct frame_builder_t;
 
@@ -19,7 +20,7 @@ struct frame_builder_subframe_t {
     struct smart_frame_t* smart_frame;
     int x_offset;
     int y_offset;
-  int radius;
+  struct border_s border;
     int render_width;
     int render_height;
     enum object_fit object_fit;

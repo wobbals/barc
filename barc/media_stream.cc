@@ -39,7 +39,7 @@ struct media_stream_s {
   int source_height;
   int x_offset;
   int y_offset;
-  int radius;
+  struct border_s border;
   int z_index;
   int render_width;
   int render_height;
@@ -215,18 +215,21 @@ void media_stream_set_class(struct media_stream_s* stream,
   stream->sz_class = sz_class;
 }
 
-const char* media_stream_get_name(struct media_stream_s* stream) {
+const char* media_stream_get_name(const struct media_stream_s* stream) {
     return stream->sz_name;
 }
 
-const char* media_stream_get_class(struct media_stream_s* stream) {
+const char* media_stream_get_class(const struct media_stream_s* stream) {
     return stream->sz_class;
 }
 
-int archive_stream_get_radius(struct media_stream_s* stream) {
-  return stream->radius;
+const struct border_s* media_stream_get_border(struct media_stream_s* stream)
+{
+  return &stream->border;
 }
 
-void archive_stream_set_radius(struct media_stream_s* stream, int radius) {
-  stream->radius = radius;
+void media_stream_set_border(struct media_stream_s* stream,
+                             const struct border_s* border)
+{
+  memcpy(&stream->border, border, sizeof(struct border_s));
 }

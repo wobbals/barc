@@ -14,7 +14,10 @@
     "bestFit",
     "horizontalPresentation",
     "verticalPresentation",
-    "custom"
+    "custom",
+    "circleTopPresentation",
+    "pip",
+    "auto"
   ],
   "debug_queue": true,
   "clean_artifacts": true,
