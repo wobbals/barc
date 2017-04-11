@@ -18,6 +18,7 @@
 #include "barc.h"
 #include "archive_package.h"
 #include "zipper.h"
+#include "curler.h"
 
 int main(int argc, char **argv)
 {
@@ -31,6 +32,8 @@ int main(int argc, char **argv)
     int64_t begin_offset = 0;
     int64_t end_offset = 0;
     int c;
+  char input_is_fd = 0;
+  int input_fd = 0;
 
     static struct option long_options[] =
     {
@@ -103,7 +106,13 @@ int main(int argc, char **argv)
     if (!out_height) {
         out_height = 480;
     }
-  
+
+  if (!strncmp(input_path, "http", 4)) {
+    printf("Input parameter looks like a URL. Attempting to download %s\n",
+           input_path);
+    input_path = get_http(input_path);
+  }
+
   barc_bootstrap();
     //av_log_set_level(AV_LOG_VERBOSE);
     //av_log_set_callback(my_log_callback);

@@ -95,6 +95,8 @@
 		D49D2CD81E404A14005096BF /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD71E404A14005096BF /* Foundation.framework */; };
 		D49D2CDA1E404A2E005096BF /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CD91E404A2E005096BF /* AppKit.framework */; };
 		D49D2CDC1E404A4B005096BF /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D49D2CDB1E404A4B005096BF /* OpenGL.framework */; };
+		D49DDC791E9C484800DB2E53 /* curler.c in Sources */ = {isa = PBXBuildFile; fileRef = D49DDC771E9C484800DB2E53 /* curler.c */; };
+		D49DDC881E9C490400DB2E53 /* libcurl.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D49DDC871E9C490400DB2E53 /* libcurl.tbd */; };
 		D4BAE0761E8EBA5F007FE693 /* archive_manifest.cc in Sources */ = {isa = PBXBuildFile; fileRef = D4BAE0741E8EBA5F007FE693 /* archive_manifest.cc */; };
 		D4EEBD4E1E4D13CB0004B76A /* libzip.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */; };
 		D4EEBD541E4D289B0004B76A /* file_writer.c in Sources */ = {isa = PBXBuildFile; fileRef = D4EEBD521E4D289B0004B76A /* file_writer.c */; };
@@ -697,6 +699,9 @@
 		D49D2CD91E404A2E005096BF /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		D49D2CDB1E404A4B005096BF /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		D49DDC5C1E9028B300DB2E53 /* test_manifest_parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = test_manifest_parser.cc; path = test/test_manifest_parser.cc; sourceTree = "<group>"; };
+		D49DDC771E9C484800DB2E53 /* curler.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = curler.c; sourceTree = "<group>"; };
+		D49DDC781E9C484800DB2E53 /* curler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = curler.h; sourceTree = "<group>"; };
+		D49DDC871E9C490400DB2E53 /* libcurl.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcurl.tbd; path = usr/lib/libcurl.tbd; sourceTree = SDKROOT; };
 		D4BAE0741E8EBA5F007FE693 /* archive_manifest.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = archive_manifest.cc; sourceTree = "<group>"; };
 		D4BAE0751E8EBA5F007FE693 /* archive_manifest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = archive_manifest.h; sourceTree = "<group>"; };
 		D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libzip.4.dylib; path = ../../../../usr/local/Cellar/libzip/1.1.2/lib/libzip.4.dylib; sourceTree = "<group>"; };
@@ -718,6 +723,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D49DDC881E9C490400DB2E53 /* libcurl.tbd in Frameworks */,
 				D4EEBD561E4E51900004B76A /* libuv.1.dylib in Frameworks */,
 				D4EEBD4E1E4D13CB0004B76A /* libzip.4.dylib in Frameworks */,
 				D401DF481E4C1F7200E26720 /* libjansson.4.dylib in Frameworks */,
@@ -1681,6 +1687,8 @@
 				D43114511E60F54F0043763A /* object_fit.h */,
 				D483513A1E787A4800EF935A /* video_mixer.cc */,
 				D483513B1E787A4800EF935A /* video_mixer.h */,
+				D49DDC771E9C484800DB2E53 /* curler.c */,
+				D49DDC781E9C484800DB2E53 /* curler.h */,
 			);
 			path = barc;
 			sourceTree = "<group>";
@@ -1688,6 +1696,7 @@
 		D47DB3561E3171990052418C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D49DDC871E9C490400DB2E53 /* libcurl.tbd */,
 				D4EEBD551E4E51900004B76A /* libuv.1.dylib */,
 				D4EEBD4D1E4D13CB0004B76A /* libzip.4.dylib */,
 				D401DF491E4D121A00E26720 /* libzip.2.dylib */,
@@ -1903,6 +1912,7 @@
 				D47DB3B31E3A96900052418C /* yuv_rgb.c in Sources */,
 				D4EEBD5E1E4E53160004B76A /* zipper.c in Sources */,
 				D47018A11E3BC5130040257B /* el_td.cpp in Sources */,
+				D49DDC791E9C484800DB2E53 /* curler.c in Sources */,
 				D47018AB1E3BC5130040257B /* string_piece.c in Sources */,
 				D47018931E3BC5130040257B /* el_before_after.cpp in Sources */,
 				D47DB3B61E3A9C060052418C /* archive_package.cc in Sources */,
