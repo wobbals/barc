@@ -1,87 +1,42 @@
-#!/usr/bin/env node
+/*
+ * This is a fork of worker.js from the barc webapp tree. Heading in a different
+ * direction, this runner is charged with new environmental constraints:
+ * - No config files: everything you need must be passed in via environment or
+ *   Docker CMD args.
+ * - Ephemeral: Process runs, dies, and the container is wiped away
+ * - Stripped of Kue: scheduling moves from redis+kue to ECS tasks
+ */
 
 const child_process = require('child_process');
 const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
 
-var request = require('request');
-var progress = require('request-progress');
-var validator = require('validator');
-var config = require('config');
-var debug = require('debug')('barc:worker');
-
-var kue = require('kue');
-var kue_opts = {
-  redis: {
-      host: process.env.redis_host || config.get("redis_host"),
-      port: config.has("redis_port") ? config.get("redis_port") : 6379,
-  }
-};
-var queue = kue.createQueue(kue_opts);
-
-var job_helper = require("./helpers/job_helper.js");
-
-var s3 = require('s3');
-
-var uploader = s3.createClient({
+const request = require('request');
+const progress = require('request-progress');
+const validator = require('validator');
+const s3 = require('s3');
+var debug = require('debug')('barc:task');
+const uploader = s3.createClient({
   maxAsyncS3: 20,     // this is the default
   s3RetryCount: 3,    // this is the default
   s3RetryDelay: 1000, // this is the default
   multipartUploadThreshold: 20971520, // this is the default (20 MB)
   multipartUploadSize: 15728640, // this is the default (15 MB)
   s3Options: {
-    accessKeyId: config.get("aws_token"),
-    secretAccessKey: config.get("aws_secret"),
-    region: config.get("s3_region")
+    accessKeyId: process.env.S3_TOKEN,
+    secretAccessKey: process.env.S3_SECRET,
+    region: process.env.S3_REGION
   },
 });
 
-process.once( 'SIGTERM', function ( sig ) {
-  queue.shutdown( 5000, function(err) {
-    console.log( 'Kue shutdown: ', err||'' );
-    process.exit( 0 );
-  });
-});
-
-queue.process('job', function(job, done) {
-  try {
-    processJob(job, done);
-  } catch (err) {
-    done(err);
-    tryPostback(job.data.callbackURL, job.id, "error - process failure");
-  }
-});
-
-var processJob = function(job, done) {
-  debug(`Received job ${job.id}`);
-  // this should have already happened in the webapp, but double check to
-  // be extra safe.
-  var requestArgs = job_helper.parseJobArgs(job.data);
-  if (requestArgs.archiveURL && validator.isURL(requestArgs.archiveURL)) {
-    downloadArchive(job, requestArgs.archiveURL, 
-      function(downloadedArchivePath, error) {
-      if (!error) {
-        processArchive(job, done, downloadedArchivePath, requestArgs);
-      } else {
-        done("Failed to download archive");
-        tryPostback(job.data.callbackURL, job.id, "error - archive download");
-      }
-    });
-  } else {
-    debug("No archiveURL. Abort.");
-    done("Missing archiveURL.");
-    tryPostback(job.data.callbackURL, job.id, "error - missing archiveURL");
-  }
-};
-
-var processArchive = function(job, done, archiveLocalPath, requestArgs) {
-  debug("Processing job " + job.id)
-  var barc = config.has("barc_path") ? config.get("barc_path") : 'barc';
+var processArchive = function(archiveLocalPath, requestArgs, cb) {
+  debug(`begin processing task ${taskId}`)
+  var barc = process.env.BARC_PATH || 'barc';
   var cwd = process.cwd();
   debug("Working from " + cwd);
   debug(`job args: ` + JSON.stringify(requestArgs));
-  var archiveOutput = `${cwd}/${job.id}.mp4`;
+  var archiveOutput = `${cwd}/${taskId}.mp4`;
   var args = [];
   args.push(`-i${archiveLocalPath}`);
   args.push(`-o${archiveOutput}`);
@@ -113,9 +68,9 @@ var processArchive = function(job, done, archiveLocalPath, requestArgs) {
     cwd: cwd
   });
   debug(`Spawned child pid ${child.pid}`)
-  var logpath = `${cwd}/${job.id}.log`;
+  var logpath = `${cwd}/${taskId}.log`;
   var logfd = fs.openSync(logpath, "w+");
-  
+  var last_progress = 0;
   child.stdout.on('data', function(data) {
     fs.write(logfd, data.toString(), function(err, written, string) {
 
@@ -125,12 +80,12 @@ var processArchive = function(job, done, archiveLocalPath, requestArgs) {
       try {
         var parsed = JSON.parse(line);
         if (parsed.progress) {
-          // update job progress to keep from timing out
-          // step 2: this phase should stay between 33% and 66%
-          var normalizedComplete = 
-          parsed.progress.complete + parsed.progress.total;
-          var normalizedTotal = parsed.progress.total * 3;
-          job.progress(normalizedComplete, normalizedTotal);
+          var percentage =
+          (100 * parsed.progress.complete / parsed.progress.total).toFixed(2);
+          if (percentage - last_progress > 5) {
+            debug(`Task progress ${percentage}%`);
+            last_progress = percentage;
+          }
         }
       } catch (e) {
         // just a line we can't parse. no biggie. 
@@ -150,10 +105,9 @@ var processArchive = function(job, done, archiveLocalPath, requestArgs) {
   child.on('exit', (code) => {
     debug(`Child exited with code ${code}`);
     if (0 == code) {
-      uploadArchiveOutput(job, done, archiveOutput);
+      cb(archiveOutput);
     } else {
-      done(`Process exited with code ${code}`);
-      tryPostback(job.data.callbackURL, job.id, "error - unknown return code");
+      cb(null, `error - unknown return code ${code}`)
     }
     // finally, compress the log file and call it a day.
     var gzip = zlib.createGzip();
@@ -162,31 +116,36 @@ var processArchive = function(job, done, archiveLocalPath, requestArgs) {
     const out = fs.createWriteStream(compressed_logs);
     inp.pipe(gzip).pipe(out);
     out.on("finish", function() {
-      uploadLogs(job, compressed_logs);
+      uploadLogs(compressed_logs);
     });
     // clean up the mess we made during normal use
     fs.unlinkSync(logpath);
-    if (config.get("clean_artifacts")) {
+    if (process.env.CLEAN_ARTIFACTS) {
       // probably also good to clean up source archive if we're not debugging
       fs.unlinkSync(archiveLocalPath);
     }
   });
   child.on('error', function(err) {
     console.log("Spawn error " + err);
+    cb(null, err);
   });
 }
 
-var uploadLogs = function(job, logpath) {
-  var key = `${config.get("s3_prefix")}/${job.id}/${path.basename(logpath)}`;
-  debug(`Upload job ${job.id} logs from ${logpath} to ${key} at ` +
-    ` ${config.get("s3_bucket")}`
+var uploadLogs = function(logpath) {
+  if (!process.env.S3_PREFIX || !process.env.S3_BUCKET) {
+    debug("Missing S3 configuration vars");
+    return;
+  }
+  var key = `${process.env.S3_PREFIX}/${taskId}/${path.basename(logpath)}`;
+  debug(`Upload job ${taskId} logs from ${logpath} to ${key} at ` +
+    ` ${process.env.S3_BUCKET}`
   );
   const stats = fs.statSync(logpath);
   const fileSizeInBytes = stats.size;
   var params = {
     localFile: logpath,
     s3Params: {
-      Bucket: config.get("s3_bucket"),
+      Bucket: process.env.S3_BUCKET,
       Key: key
     },
   };
@@ -199,20 +158,24 @@ var uploadLogs = function(job, logpath) {
   });
   upload.on('end', function() {
     debug("done uploading logs");
-    if (config.get("clean_artifacts")) {
+    if (process.env.CLEAN_ARTIFACTS) {
       fs.unlinkSync(logpath);
     }
   });
 };
 
-var uploadArchiveOutput = function(job, done, archiveOutput) {
+var uploadArchiveOutput = function(archiveOutput, cb) {
+  if (!process.env.S3_PREFIX || !process.env.S3_BUCKET) {
+    debug("Missing S3 configuration vars");
+    return;
+  }
   var key = 
-  `${config.get("s3_prefix")}/${job.id}/${path.basename(archiveOutput)}`;
-  debug(`Begin upload to ${key} at ${config.get("s3_bucket")}`);
+  `${process.env.S3_PREFIX}/${taskId}/${path.basename(archiveOutput)}`;
+  debug(`Begin upload to ${key} at ${process.env.S3_BUCKET}`);
   var params = {
     localFile: archiveOutput,
     s3Params: {
-      Bucket: config.get("s3_bucket"),
+      Bucket: process.env.S3_BUCKET,
       Key: key,
       ACL: 'private'
     },
@@ -220,29 +183,28 @@ var uploadArchiveOutput = function(job, done, archiveOutput) {
   var upload = uploader.uploadFile(params);
   upload.on('error', function(err) {
     debug("unable to upload:", err.stack);
+    cb(null, err);
   });
   upload.on('progress', function() {
     // update job progress to keep from timing out
     // step 3: this phase should stay between 66% and 100%
     var normalizedComplete = upload.progressAmount + (2 * upload.progressTotal);
     var normalizedTotal = upload.progressTotal * 3;
-    job.progress(normalizedComplete, normalizedTotal);
+    // TODO: This is another spot where progress updates need to get rewired
+    // job.progress(normalizedComplete, normalizedTotal);
   });
   upload.on('end', function() {
     debug("done uploading archive");
-    if (config.get("clean_artifacts")) {
+    if (process.env.CLEAN_ARTIFACTS) {
       // clean up!
       fs.unlinkSync(archiveOutput);
     }
-    var results = {};
-    results.s3_key = key;
-    debug(`job ${job.id} completed successfully.`);
-    done(null, results);
-    tryPostback(job.data.callbackURL, job.id, "success");
+    debug(`task ${taskId} completed successfully.`);
+    cb("success");
   });
 }
 
-var tryPostback = function(callbackURL, jobid, result) {
+var tryPostback = function(callbackURL, result) {
   if (!callbackURL || !validator.isURL(callbackURL)) {
     return;
   }
@@ -250,7 +212,7 @@ var tryPostback = function(callbackURL, jobid, result) {
     uri: callbackURL,
     method: 'POST',
     json: {
-      job: `${jobid}`,
+      job: `${taskId}`,
       result: result
     }
   };
@@ -259,13 +221,14 @@ var tryPostback = function(callbackURL, jobid, result) {
   });
 }
 
-var downloadArchive = function(job, archiveURL, callback) {
+var downloadArchive = function(archiveURL, callback) {
   debug(`Request download of archive ${archiveURL}`)
-  var archivePath = `${job.id}-download`;
+  var archivePath = `${taskId}.archive.input`;
   progress(request(archiveURL), {
   })
   .on('progress', function (state) {
-      job.progress(state.size.transferred, state.size.total * 3);
+    // TODO: if the agent tracks job progress, we should forward this info
+    //job.progress(state.size.transferred, state.size.total * 3);
   })
   .on('error', function (err) {
     debug("Error on archive download: ", err);
@@ -279,3 +242,43 @@ var downloadArchive = function(job, archiveURL, callback) {
   })
   .pipe(fs.createWriteStream(archivePath));
 }
+
+/** MAIN TASK RUNNER */
+
+const argv = require('minimist')(process.argv.slice(2));
+console.dir(argv);
+const taskId = process.env.TASK_ID;
+const archiveURL = process.env.ARCHIVE_URL;
+const callbackURL = process.env.CALLBACK_URL;
+
+if (!archiveURL || !validator.isURL(archiveURL)) {
+  debug(`fatal: '${archiveURL}' is not a URL. Set with env ARCHIVE_URL.`);
+  return;
+}
+
+if (!taskId || !validator.isAscii(taskId)) {
+  debug(`fatal: invalid task id ${taskId}. Set with env TASK_ID`);
+  return;
+}
+
+downloadArchive(archiveURL, function(inputPath, error) {
+  if (error) {
+    debug(`Aborting task to error ${error}`);
+    tryPostback(`download error: ${error}`);
+    return;
+  }
+  processArchive(inputPath, argv, function(outputPath, error) {
+    if (error) {
+      debug(`Processing failed with error ${error}`);
+      tryPostback(`process error: ${error}`);
+      return;
+    }
+    uploadArchiveOutput(outputPath, function(result, error) {
+      if (error) {
+        tryPostback(`upload error: ${error}`);
+      } else {
+        tryPostback(result);
+      }
+    });
+  });
+});
