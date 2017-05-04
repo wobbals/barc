@@ -11,7 +11,7 @@ var s3_client = new AWS.S3({
 
 var parseJobArgs = function(args) {
   var result = {}
-  
+
   // required parameters first
   if (args.archiveURL && validator.isURL(args.archiveURL, {
     protocols: ['http','https']
@@ -21,8 +21,8 @@ var parseJobArgs = function(args) {
     result.error = "Missing required parameter: archiveURL"
     return result;
   }
-  
-  if (args.cssPreset && 
+
+  if (args.cssPreset &&
     config.get("known_css_presets").indexOf(args.cssPreset) > -1)
   {
     result.cssPreset = args.cssPreset;
@@ -31,8 +31,8 @@ var parseJobArgs = function(args) {
   if (result.cssPreset == "custom") {
     result.customCSS = validator.stripLow(args.customCSS);
   }
-  
-  if (validator.isInt(args.width + '', { 
+
+  if (validator.isInt(args.width + '', {
     min: config.get("job_limits.min_width"),
     max: config.get("job_limits.max_width")
   })) {
@@ -40,8 +40,8 @@ var parseJobArgs = function(args) {
   } else {
     result.width = config.get("job_defaults.width");
   }
-  
-  if (validator.isInt(args.height + '', { 
+
+  if (validator.isInt(args.height + '', {
     min: config.get("job_limits.min_height"),
     max: config.get("job_limits.max_height")
   })) {
@@ -49,24 +49,55 @@ var parseJobArgs = function(args) {
   } else {
     result.height = config.get("job_defaults.height");
   }
-  
+
   if (validator.isInt(args.beginOffset + '')) {
     result.beginOffset = parseInt(args.beginOffset);
   }
-  
+
   if (validator.isInt(args.endOffset + '')) {
     result.endOffset = parseInt(args.endOffset);
   }
-  
+
   if (args.callbackURL && validator.isURL(args.callbackURL)) {
     result.callbackURL = args.callbackURL;
   }
-  
+
   return result;
 }
 
+/* To be compatible with JS minimist, please use longopt format */
+var taskize = function(requestArgs) {
+  let args = ['node', 'task.js'];
+  if (requestArgs.width) {
+    args.push(`--width`);
+    args.push(`${parseInt(requestArgs.width)}`);
+  }
+  if (requestArgs.height) {
+    args.push(`--height`);
+    args.push(`${parseInt(requestArgs.height)}`);
+  }
+  if (requestArgs.cssPreset) {
+    args.push(`--css_preset`);
+    args.push(`${requestArgs.cssPreset}`);
+  }
+  if (requestArgs.beginOffset) {
+    args.push('--begin_offset');
+    args.push(`${requestArgs.beginOffset}`);
+  }
+  if (requestArgs.endOffset) {
+    args.push(`--end_offset`);
+    args.push(`${requestArgs.endOffset}`);
+  }
+  if (requestArgs.customCSS) {
+    args.push(`--custom_css`);
+    args.push(`"${requestArgs.customCSS}"`);
+  }
+  return args;
+}
+module.exports.taskize = taskize;
+
 var validateJobToken = function(job, token) {
-  var calculated_secret = hash_generator.calc(token, 
+  var calculated_secret = hash_generator.calc(token,
     config.get("secret_token_length"),
     config.get("secret_token_salt")
   );
@@ -93,12 +124,12 @@ var getJobStatus = function(job, queue) {
     result.failed_at = job.failed_at;
   }
   result.progress = job.progress();
-  return result;    
+  return result;
 }
 
 var getJobDownloadURL = function(job, res, redirect) {
-  var params = { 
-    Bucket: config.get("s3_bucket"), 
+  var params = {
+    Bucket: config.get("s3_bucket"),
     Key: job.result.s3_key,
     Expires: 600 // 10 minutes
   };

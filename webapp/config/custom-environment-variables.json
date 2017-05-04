@@ -11,5 +11,6 @@
   "ssl_key_path":"SSL_KEY_PATH",
   "ssl_chain_path":"SSL_CHAIN_PATH",
   "redis_host": "REDIS_HOST",
-  "redis_port": "REDIS_PORT"
+  "redis_port": "REDIS_PORT",
+  "kennel_base_url":"KENNEL_BASE_URL"
 }

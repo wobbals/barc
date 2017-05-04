@@ -30,6 +30,29 @@ const uploader = s3.createClient({
   },
 });
 
+// Implement bash string escaping.
+var safePattern =    /^[a-z0-9_\/\-.,?:@#%^+=\[\]]*$/i;
+var safeishPattern = /^[a-z0-9_\/\-.,?:@#%^+=\[\]{}|&()<>; *']*$/i;
+function bashEscape(arg) {
+  // These don't need quoting
+  if (safePattern.test(arg)) return arg;
+
+  // These are fine wrapped in double quotes using weak escaping.
+  if (safeishPattern.test(arg)) return '"' + arg + '"';
+
+  // Otherwise use strong escaping with single quotes
+  return arg.replace(/'+/g, function (val) {
+    // But we need to interpolate single quotes efficiently
+
+    // One or two can simply be '\'' -> ' or '\'\'' -> ''
+    if (val.length < 3) return "'" + val.replace(/'/g, "\\'") + "'";
+
+    // But more in a row, it's better to wrap in double quotes '"'''''"' -> '''''
+    return "'\"" + val + "\"'";
+
+  });
+}
+
 var processArchive = function(archiveLocalPath, requestArgs, cb) {
   debug(`begin processing task ${taskId}`)
   var barc = process.env.BARC_PATH || 'barc';
@@ -40,26 +63,17 @@ var processArchive = function(archiveLocalPath, requestArgs, cb) {
   var args = [];
   args.push(`-i${archiveLocalPath}`);
   args.push(`-o${archiveOutput}`);
-  if (requestArgs.width) {
-    args.push("-w" + parseInt(requestArgs.width));    
+
+  for (let k in requestArgs) {
+    if ('_' === k) {
+      continue;
+    }
+    let sanitizedArg = bashEscape(requestArgs[k]);
+    args.push(`--${k}=${sanitizedArg}`);
   }
-  if (requestArgs.height) {
-    args.push("-h" + parseInt(requestArgs.height));
-  }
-  if (requestArgs.cssPreset) {
-    args.push("-p" + requestArgs.cssPreset);
-  }
-  if (requestArgs.beginOffset) {
-    args.push(`-b${requestArgs.beginOffset}`);
-  }
-  if (requestArgs.endOffset) {
-    args.push(`-e${requestArgs.endOffset}`);
-  }
-  if (requestArgs.customCSS) {
-    args.push(`-c${requestArgs.customCSS}`);
-  }
+
   debug("spawn process " + barc);
-  debug("args: ", args);
+  debug("args: ", args.join(' '));
 
   // Note for nodemon users; this process creates files in the cwd. It will
   // kill your process without saying much and leave you well confused.
@@ -88,7 +102,7 @@ var processArchive = function(archiveLocalPath, requestArgs, cb) {
           }
         }
       } catch (e) {
-        // just a line we can't parse. no biggie. 
+        // just a line we can't parse. no biggie.
       }
     });
   });
@@ -169,7 +183,7 @@ var uploadArchiveOutput = function(archiveOutput, cb) {
     debug("Missing S3 configuration vars");
     return;
   }
-  var key = 
+  var key =
   `${process.env.S3_PREFIX}/${taskId}/${path.basename(archiveOutput)}`;
   debug(`Begin upload to ${key} at ${process.env.S3_BUCKET}`);
   var params = {
@@ -204,8 +218,9 @@ var uploadArchiveOutput = function(archiveOutput, cb) {
   });
 }
 
-var tryPostback = function(callbackURL, result) {
+var tryPostback = function(result) {
   if (!callbackURL || !validator.isURL(callbackURL)) {
+    debug(`tryPostback: invalid URL ${callbackURL}`);
     return;
   }
   var postback_options = {
@@ -216,6 +231,7 @@ var tryPostback = function(callbackURL, result) {
       result: result
     }
   };
+  debug(`tryPostback: ${JSON.stringify, null, ' ')}`);
   request(postback_options, function(error, response, body) {
     debug(`Postback to ${callbackURL} returned code ${response.statusCode}`);
   });
@@ -234,7 +250,7 @@ var downloadArchive = function(archiveURL, callback) {
     debug("Error on archive download: ", err);
     fs.unlink(archivePath);
     if (callback) {
-      callback(null, err.message); 
+      callback(null, err.message);
     }
   })
   .on('end', function () {
@@ -248,8 +264,11 @@ var downloadArchive = function(archiveURL, callback) {
 const argv = require('minimist')(process.argv.slice(2));
 console.dir(argv);
 const taskId = process.env.TASK_ID;
+debug(`Using taskId ${taskId}`);
 const archiveURL = process.env.ARCHIVE_URL;
+debug(`Using archive URL ${archiveURL}`);
 const callbackURL = process.env.CALLBACK_URL;
+debug(`Using callback URL ${callbackURL}`);
 
 if (!archiveURL || !validator.isURL(archiveURL)) {
   debug(`fatal: '${archiveURL}' is not a URL. Set with env ARCHIVE_URL.`);

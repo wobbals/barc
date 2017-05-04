@@ -19,7 +19,11 @@
     "pip",
     "auto"
   ],
-  "debug_queue": true,
+  "debug_queue": false,
   "clean_artifacts": true,
-  "secret_token_length": 32
+  "secret_token_length": 32,
+  "kennel": {
+    "task":"barc-single-task:4",
+    "container":"barc-task-dockerub"
+  }
 }

@@ -11,5 +11,6 @@
   "ssl_key_path":"",
   "ssl_chain_path":"",
   "redis_host": "localhost",
-  "redis_port": 6379
+  "redis_port": 6379,
+  "kennel_base_url":""
 }
