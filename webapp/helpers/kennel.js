@@ -46,8 +46,8 @@ const getTask = function(taskId, cb) {
     let body = JSON.parse(bodyStr);
     debug(`kennel get task response: ${JSON.stringify(response, null, ' ')}`);
     debug(`kennel get task body: ${JSON.stringify(body, null, ' ')}`);
-    debug(`kennel get task error: ${error}`);
     if (error) {
+      debug(`kennel get task error: ${error}`);
       cb({error: 'internal error: kennel query failed'});
       return;
     }

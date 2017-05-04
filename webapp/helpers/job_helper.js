@@ -8,6 +8,49 @@ var s3_client = new AWS.S3({
     secretAccessKey: config.get("aws_secret"),
     region: config.get("s3_region")
 });
+var Job = require('../model/job');
+
+var handlePostback = async function(body) {
+  debug(`handlePostback:`, body);
+  if (!body.message || !body.taskId) {
+    return;
+  }
+  let taskId = body.taskId;
+  let message = body.message;
+  try {
+    let job = await Job.getJob(taskId);
+  } catch (e) {
+    debug(`handlePostback: `, e);
+    return;
+  }
+  let jobData = {};
+  if (message.output_key) {
+    jobData.archiveKey = message.output_key;
+  }
+  if (message.output_bucket) {
+    jobData.archiveBucket = message.output_bucket;
+  }
+  if (message.logs_key) {
+    jobData.logsKey = message.logs_key;
+  }
+  if (message.logs_bucket) {
+    jobData.logsBucket = message.logs_bucket;
+  }
+  if (message.error) {
+    jobData.error = JSON.stringify(message.error);
+  }
+  if (message.status) {
+    jobData.status = message.status;
+  }
+  debug(`handlePostback: persist job data`, jobData);
+  try {
+    await Job.persist(taskId, jobData);
+  } catch (e) {
+    debug('handlePostback:', e);
+    debug(e.stack);
+  }
+}
+module.exports.handlePostback = handlePostback;
 
 var parseJobArgs = function(args) {
   var result = {}
@@ -59,8 +102,11 @@ var parseJobArgs = function(args) {
   }
 
   if (args.callbackURL && validator.isURL(args.callbackURL)) {
-    result.callbackURL = args.callbackURL;
+    result.externalCallbackURL = args.callbackURL;
   }
+  // intercept old external callback URL with our own internal endpoint
+  // TODO: move to config
+  result.callbackURL = 'https://920b9108.ngrok.io/v2/job/callback';
 
   return result;
 }
@@ -127,18 +173,21 @@ var getJobStatus = function(job, queue) {
   return result;
 }
 
-var getJobDownloadURL = function(job, res, redirect) {
-  var params = {
-    Bucket: config.get("s3_bucket"),
-    Key: job.result.s3_key,
-    Expires: 600 // 10 minutes
-  };
-  s3_client.getSignedUrl('getObject', params, function (err, url) {
-    if (redirect) {
-      res.redirect(url);
-    } else {
-      res.status(200).json({"downloadURL": url});
-    }
+var getJobDownloadURL = function(key) {
+  return new Promise((resolve, reject) => {
+    var params = {
+      Bucket: config.get("s3_bucket"),
+      Key: key,
+      Expires: 600 // 10 minutes
+    };
+    s3_client.getSignedUrl('getObject', params, function (err, url) {
+      if (err) {
+        debug(`getJobDownloadURL: `, err);
+        reject(err);
+      } else {
+        resolve(url);
+      }
+    });
   });
 }
 

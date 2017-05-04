@@ -154,6 +154,10 @@ var uploadLogs = function(logpath) {
   debug(`Upload job ${taskId} logs from ${logpath} to ${key} at ` +
     ` ${process.env.S3_BUCKET}`
   );
+  tryPostback({
+    logs_key: key,
+    logs_bucket: process.env.S3_BUCKET
+  });
   const stats = fs.statSync(logpath);
   const fileSizeInBytes = stats.size;
   var params = {
@@ -185,6 +189,10 @@ var uploadArchiveOutput = function(archiveOutput, cb) {
   }
   var key =
   `${process.env.S3_PREFIX}/${taskId}/${path.basename(archiveOutput)}`;
+  tryPostback({
+    output_key: key,
+    output_bucket: process.env.S3_BUCKET
+  });
   debug(`Begin upload to ${key} at ${process.env.S3_BUCKET}`);
   var params = {
     localFile: archiveOutput,
@@ -218,7 +226,7 @@ var uploadArchiveOutput = function(archiveOutput, cb) {
   });
 }
 
-var tryPostback = function(result) {
+var tryPostback = function(message) {
   if (!callbackURL || !validator.isURL(callbackURL)) {
     debug(`tryPostback: invalid URL ${callbackURL}`);
     return;
@@ -227,11 +235,11 @@ var tryPostback = function(result) {
     uri: callbackURL,
     method: 'POST',
     json: {
-      job: `${taskId}`,
-      result: result
+      taskId: `${taskId}`,
+      message: message
     }
   };
-  debug(`tryPostback: ${JSON.stringify, null, ' ')}`);
+  debug(`tryPostback: ${JSON.stringify(postback_options, null, ' ')}`);
   request(postback_options, function(error, response, body) {
     debug(`Postback to ${callbackURL} returned code ${response.statusCode}`);
   });
@@ -270,6 +278,8 @@ debug(`Using archive URL ${archiveURL}`);
 const callbackURL = process.env.CALLBACK_URL;
 debug(`Using callback URL ${callbackURL}`);
 
+tryPostback({lastMessage: 'GOLIATH ONLINE'});
+
 if (!archiveURL || !validator.isURL(archiveURL)) {
   debug(`fatal: '${archiveURL}' is not a URL. Set with env ARCHIVE_URL.`);
   return;
@@ -283,20 +293,20 @@ if (!taskId || !validator.isAscii(taskId)) {
 downloadArchive(archiveURL, function(inputPath, error) {
   if (error) {
     debug(`Aborting task to error ${error}`);
-    tryPostback(`download error: ${error}`);
+    tryPostback({error: error, status: 'error: archive download'});
     return;
   }
   processArchive(inputPath, argv, function(outputPath, error) {
     if (error) {
       debug(`Processing failed with error ${error}`);
-      tryPostback(`process error: ${error}`);
+      tryPostback({error: error, status: 'error: archive processing'});
       return;
     }
     uploadArchiveOutput(outputPath, function(result, error) {
       if (error) {
-        tryPostback(`upload error: ${error}`);
+        tryPostback({error: error, status: 'error: archive upload'});
       } else {
-        tryPostback(result);
+        tryPostback({status: result});
       }
     });
   });
