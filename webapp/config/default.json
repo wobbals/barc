@@ -23,7 +23,7 @@
   "clean_artifacts": true,
   "secret_token_length": 32,
   "kennel": {
-    "task":"barc-single-task:4",
+    "task":"barc-single-task:5",
     "container":"barc-task-dockerub"
   }
 }

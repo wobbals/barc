@@ -23,7 +23,9 @@ var handlePostback = async function(body) {
     debug(`handlePostback: `, e);
     return;
   }
-  let jobData = {};
+  let jobData = {
+    lastMessage: new Date().getTime()
+  };
   if (message.output_key) {
     jobData.archiveKey = message.output_key;
   }
