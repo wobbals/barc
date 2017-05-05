@@ -28,7 +28,7 @@ router.post('/job', function(req, res) {
   if (job_args.externalCallbackURL) {
     job_data.externalCallbackURL = job_args.externalCallbackURL;
   }
-  kennel.postTask(job_args, (error, response) => {
+  kennel.postTask(req.body, (error, response) => {
     if (error) {
       res.status(error.code ? error.code : 500);
       res.json({error: error});

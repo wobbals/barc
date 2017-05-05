@@ -309,7 +309,7 @@ downloadArchive(archiveURL, function(inputPath, error) {
       if (error) {
         tryPostback({error: error, status: 'error: archive upload'});
       } else {
-        tryPostback({status: 'complete'});
+        tryPostback({status: 'complete', progress: 100});
       }
     });
   });
