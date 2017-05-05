@@ -80,8 +80,8 @@ var handlePostback = async function(body) {
     debug('handlePostback:', e);
     debug(e.stack);
   }
-  if ('success' === message.status) {
-    tryExternalPostback(taskId, {status: 'complete', jobId: taskId});
+  if (message.status) {
+    tryExternalPostback(taskId, {status: message.status, jobId: taskId});
   }
 }
 module.exports.handlePostback = handlePostback;

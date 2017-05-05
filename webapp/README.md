@@ -13,7 +13,7 @@ This webapp provides a web programmable interface to the barc CLI utility.
 * Start the webserver with `npm start`
 * Start a worker process (or many) with `npm run worker`. One worker will spawn
   one barc process, and work on the queue serially.
-  
+
 ### From Docker
 
 * `docker-compose up --build -d`
@@ -36,7 +36,7 @@ curl -v \
 ```
 
 If a job is accepted to the service queue, you will receive a job ID and access
-token for fetching job progress and results in the future. 
+token for fetching job progress and results in the future.
 **Do not lose this data**.
 
 ```json
@@ -59,7 +59,11 @@ New jobs can use the same arguments as the CLI tool. These include:
   jobs during testing or skipping content you do not wish to keep.
 * `callbackURL` -- A URL where the worker will send a POST after the job is
   completed. Request body will be JSON of the form:
-  `{"job":"30","result":"success"}`
+  `{"jobId":"24f7e00c-8b83-458f-8309-d7fbc47dfed5","status":"complete"}`
+* `version` -- the family of barc processor for this job. currently, this can
+  only be set to `arapahoe`. When future (breaking) changes are released to the
+  processor, a new family will be assigned and used as default. Setting this
+  version should maintain consistent behavior.
 
 ## Monitoring job progress
 
@@ -67,19 +71,19 @@ The recommended method for getting job status is by providing `callbackURL` in
 the request to schedule the job. That said, sometimes it's necessary to
 explicitly check for the progress of a job:
 
-`GET /job/:id`
+`GET /barc/job/:id`
 Gets the status of the job.
 
 Query paremeters:
 * `token` -- required. This was given to when the job was scheduled.
 
 Response keys:
-* `job_id`: hopefully will match that which you requested
-* `status`: one of `complete`, `running`, `queued`, or `failed`
+* `status`: the status of the job, as reported by the encoder
+* `clusterStatus`: the status of the job's task, as reported by the cluster
 * `progress`: a number between 0 and 100, representing the estimated completion.
-* `created_at`: timestamp when this job was created
-* `updated_at`: timestamp when job status was last updated
-* `failed_at`: timestamp when this job failed (if applicable)
+* `createdAt`: timestamp when this job was created
+* `startedAt`: timestamp when this job began running on the cluster
+* `stoppedAt`: timestamp when this job stopped running on the cluster
 
 
 ### Example
@@ -93,7 +97,7 @@ Response keys:
 > Host: localhost:3000
 > User-Agent: curl/7.51.0
 > Accept: */*
-> 
+>
 < HTTP/1.1 200 OK
 < X-Powered-By: Express
 < Content-Type: application/json; charset=utf-8
@@ -101,7 +105,7 @@ Response keys:
 < ETag: W/"35-bNLEUp4OJZaaQgQiZ/5Lvg"
 < Date: Sat, 25 Feb 2017 04:16:56 GMT
 < Connection: keep-alive
-< 
+<
 * Curl_http_done: called premature == 0
 * Connection #0 to host localhost left intact
 {"job_id":"123","status":"complete","progress":"100"}
@@ -128,7 +132,7 @@ Query parameters:
 > Host: localhost:3000
 > User-Agent: curl/7.51.0
 > Accept: */*
-> 
+>
 < HTTP/1.1 302 Found
 < X-Powered-By: Express
 < Location: https://s3-us-west-2.amazonaws.com/tb-charley-test.tokbox.com/barc/123/123.mp4?AWSAccessKeyId=AKIAIU6WAU4PRYRHZXFQ&Expires=1487996759&Signature=FBjdnLEiVFPqDFtTbN4gpJrA9hk%3D
@@ -137,7 +141,7 @@ Query parameters:
 < Content-Length: 198
 < Date: Sat, 25 Feb 2017 04:10:59 GMT
 < Connection: keep-alive
-< 
+<
 
 curl -v "http://localhost:3000/job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO&redirect=false"
 *   Trying ::1...
@@ -147,7 +151,7 @@ curl -v "http://localhost:3000/job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr
 > Host: localhost:3000
 > User-Agent: curl/7.51.0
 > Accept: */*
-> 
+>
 < HTTP/1.1 200 OK
 < X-Powered-By: Express
 < Content-Type: application/json; charset=utf-8
@@ -155,7 +159,7 @@ curl -v "http://localhost:3000/job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr
 < ETag: W/"c2-M0efU+7VHTNlTEpB/EO9Ng"
 < Date: Sat, 25 Feb 2017 04:15:36 GMT
 < Connection: keep-alive
-< 
+<
 * Curl_http_done: called premature == 0
 * Connection #0 to host localhost left intact
 {"downloadURL":"https://s3-us-west-2.amazonaws.com/tb-charley-test.tokbox.com/barc/123/123.mp4?AWSAccessKeyId=AKIAIU6WAU4PRYRHZXFQ&Expires=1487996736&Signature=Pv%2Br6yXzO4QmUIHjXuaH1mepElY%3D"}

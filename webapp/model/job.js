@@ -7,6 +7,7 @@ const redis = require('redis').createClient({
 const hash_generator = require('random-hash-generator');
 
 const persist = function(taskId, data) {
+  debug(`store job ${taskId}: ${JSON.stringify(data)}`);
   return new Promise((resolve, reject) => {
     redis.HMSET(`barc:job:${taskId}`, data, (err, obj) => {
       if (err) {
