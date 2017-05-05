@@ -38,9 +38,10 @@ router.post('/v2/job', function(req, res) {
   }
   kennel.postTask(job_args, (error, response) => {
     if (error) {
-      res.status(500);
+      res.status(error.code ? error.code : 500);
       res.json({error: error});
     } else {
+      job_data.status = 'accepted';
       Job.persist(response.taskId, job_data);
       res.status(202);
       res.json({job_id: response.taskId, access_token: key_pair.key});

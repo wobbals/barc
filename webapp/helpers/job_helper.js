@@ -9,6 +9,38 @@ var s3_client = new AWS.S3({
     region: config.get("s3_region")
 });
 var Job = require('../model/job');
+var request = require('request');
+
+var tryPostback = function(callbackURL, message) {
+  if (!callbackURL || !validator.isURL(callbackURL)) {
+    debug(`tryPostback: invalid URL ${callbackURL}`);
+    return;
+  }
+  var postback_options = {
+    uri: callbackURL,
+    method: 'POST',
+    json: message
+  };
+  debug(`tryPostback: ${JSON.stringify(postback_options)}`);
+  request(postback_options, function(error, response, body) {
+    debug(`Postback to ${callbackURL} returned code ${response.statusCode}`);
+  });
+}
+
+var tryExternalPostback = async function(taskId, message) {
+  let job;
+  try {
+    job = await Job.getJob(taskId);
+  } catch (e) {
+    debug(`tryExternalPostback: `, e);
+    return;
+  }
+  if (!job) {
+    debug(`tryExternalPostback: no job ${taskId}`);
+    return;
+  }
+  tryPostback(job.externalCallbackURL, message)
+}
 
 var handlePostback = async function(body) {
   debug(`handlePostback:`, body);
@@ -17,12 +49,6 @@ var handlePostback = async function(body) {
   }
   let taskId = body.taskId;
   let message = body.message;
-  try {
-    let job = await Job.getJob(taskId);
-  } catch (e) {
-    debug(`handlePostback: `, e);
-    return;
-  }
   let jobData = {
     lastMessage: new Date().getTime()
   };
@@ -44,12 +70,18 @@ var handlePostback = async function(body) {
   if (message.status) {
     jobData.status = message.status;
   }
+  if (message.progress) {
+    jobData.progress = message.progress;
+  }
   debug(`handlePostback: persist job data`, jobData);
   try {
     await Job.persist(taskId, jobData);
   } catch (e) {
     debug('handlePostback:', e);
     debug(e.stack);
+  }
+  if ('success' === message.status) {
+    tryExternalPostback(taskId, {status: 'complete', jobId: taskId});
   }
 }
 module.exports.handlePostback = handlePostback;
@@ -108,7 +140,8 @@ var parseJobArgs = function(args) {
   }
   // intercept old external callback URL with our own internal endpoint
   // TODO: move to config
-  result.callbackURL = 'https://920b9108.ngrok.io/v2/job/callback';
+  result.callbackURL = config.get('internal_callback_base_url') +
+  '/v2/job/callback';
 
   return result;
 }

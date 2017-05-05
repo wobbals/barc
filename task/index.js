@@ -82,6 +82,7 @@ var processArchive = function(archiveLocalPath, requestArgs, cb) {
     cwd: cwd
   });
   debug(`Spawned child pid ${child.pid}`)
+  tryPostback({status: 'processing'});
   var logpath = `${cwd}/${taskId}.log`;
   var logfd = fs.openSync(logpath, "w+");
   var last_progress = 0;
@@ -99,6 +100,7 @@ var processArchive = function(archiveLocalPath, requestArgs, cb) {
           if (percentage - last_progress > 5) {
             debug(`Task progress ${percentage}%`);
             last_progress = percentage;
+            tryPostback({progress: percentage});
           }
         }
       } catch (e) {
@@ -239,7 +241,7 @@ var tryPostback = function(message) {
       message: message
     }
   };
-  debug(`tryPostback: ${JSON.stringify(postback_options, null, ' ')}`);
+  debug(`tryPostback: ${JSON.stringify(postback_options)}`);
   request(postback_options, function(error, response, body) {
     debug(`Postback to ${callbackURL} returned code ${response.statusCode}`);
   });
@@ -278,7 +280,7 @@ debug(`Using archive URL ${archiveURL}`);
 const callbackURL = process.env.CALLBACK_URL;
 debug(`Using callback URL ${callbackURL}`);
 
-tryPostback({lastMessage: 'GOLIATH ONLINE'});
+tryPostback({lastMessage: 'GOLIATH ONLINE', status: 'launched'});
 
 if (!archiveURL || !validator.isURL(archiveURL)) {
   debug(`fatal: '${archiveURL}' is not a URL. Set with env ARCHIVE_URL.`);
@@ -302,11 +304,12 @@ downloadArchive(archiveURL, function(inputPath, error) {
       tryPostback({error: error, status: 'error: archive processing'});
       return;
     }
+    tryPostback({status: 'uploading'});
     uploadArchiveOutput(outputPath, function(result, error) {
       if (error) {
         tryPostback({error: error, status: 'error: archive upload'});
       } else {
-        tryPostback({status: result});
+        tryPostback({status: 'complete'});
       }
     });
   });

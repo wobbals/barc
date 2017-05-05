@@ -22,8 +22,11 @@
   "debug_queue": false,
   "clean_artifacts": true,
   "secret_token_length": 32,
-  "kennel": {
-    "task":"barc-single-task:5",
-    "container":"barc-task-dockerub"
+  "default_task_version":"arapahoe",
+  "task_versions": {
+    "arapahoe": {
+      "task":"barc-arapahoe",
+      "container":"barc-task"
+    }
   }
 }

@@ -8,7 +8,7 @@ const hash_generator = require('random-hash-generator');
 
 const persist = function(taskId, data) {
   return new Promise((resolve, reject) => {
-    redis.HMSET(`${taskId}`, data, (err, obj) => {
+    redis.HMSET(`barc:job:${taskId}`, data, (err, obj) => {
       if (err) {
         reject(err);
       } else {
@@ -21,7 +21,7 @@ module.exports.persist = persist;
 
 const getJob = function(taskId) {
   return new Promise((resolve, reject) => {
-    redis.HGETALL(taskId, (err, obj) => {
+    redis.HGETALL(`barc:job:${taskId}`, (err, obj) => {
       if (err) {
         reject(err);
       } else {
