@@ -141,7 +141,7 @@ var parseJobArgs = function(args) {
   // intercept old external callback URL with our own internal endpoint
   // TODO: move to config
   result.callbackURL = config.get('internal_callback_base_url') +
-  '/v2/job/callback';
+  '/job/callback';
 
   return result;
 }
