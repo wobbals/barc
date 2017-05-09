@@ -295,19 +295,31 @@ if (!taskId || !validator.isAscii(taskId)) {
 downloadArchive(archiveURL, function(inputPath, error) {
   if (error) {
     debug(`Aborting task to error ${error}`);
-    tryPostback({error: error, status: 'error: archive download'});
+    tryPostback({
+      causedBy: error,
+      status: 'error',
+      error: 'archiveownload'
+    });
     return;
   }
   processArchive(inputPath, argv, function(outputPath, error) {
     if (error) {
       debug(`Processing failed with error ${error}`);
-      tryPostback({error: error, status: 'error: archive processing'});
+      tryPostback({
+        causedBy: error,
+        status: 'error',
+        error: 'archiveProcessing'
+      });
       return;
     }
     tryPostback({status: 'uploading'});
     uploadArchiveOutput(outputPath, function(result, error) {
       if (error) {
-        tryPostback({error: error, status: 'error: archive upload'});
+        tryPostback({
+          causedBy: error,
+          status: 'error',
+          error: 'archiveUpload'
+        });
       } else {
         tryPostback({status: 'complete', progress: 100});
       }

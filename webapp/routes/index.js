@@ -33,7 +33,7 @@ router.post('/job', function(req, res) {
       res.status(error.code ? error.code : 500);
       res.json({error: error});
     } else {
-      job_data.status = 'accepted';
+      job_data.status = 'queued';
       Job.persist(response.taskId, job_data);
       res.status(202);
       res.json({job_id: response.taskId, access_token: key_pair.key});

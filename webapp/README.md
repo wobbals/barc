@@ -81,9 +81,12 @@ Response keys:
 * `status`: the status of the job, as reported by the encoder
   - `accepted`: the request for this job was valid and is waiting for an
     instance to run
-  - `launched`: the job has begun running on the cluster
-  - `error`: something bad happened
+  - `launched`: the task runner for this job has started and is healthy
+  - `processing`: the actual processing job has begun on the task runner. this
+  happens after archive download is complete.
+  - `uploading`: the processor has exited and archive is being uploaded
   - `complete`: job completes successfully
+  - `error`: something bad happened. usually an `error` key will be available.
 * `progress`: a number between 0 and 100, representing the estimated completion.
 * `createdAt`: timestamp when this job was passed to the cluster
 * `startedAt`: timestamp when this job began running on the cluster
