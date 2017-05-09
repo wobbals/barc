@@ -58,11 +58,13 @@ router.get('/job/:id', async function(req, res) {
 
 router.get('/job/:id/download', async function(req, res) {
   var redirect = (req.query.redirect === "true");
-  let job;
+  let job = null;
   try {
     job = await Job.getJob(req.params.id);
   } catch (e) {
     debug(e);
+  }
+  if (!job) {
     return res.status(404).json({"error": `unknown job ${req.params.id}`});
   }
   debug('download job', job);
