@@ -77,7 +77,8 @@ const getTask = async function(taskId, cb) {
     let result = {};
     result.status = job.status;
     result.progress = job.progress;
-    result.clusterStatus = body.status;
+    // Good for debugging, bad for API
+    //result.clusterStatus = body.status;
     result.createdAt = body.createdAt;
     result.startedAt = body.startedAt;
     result.stoppedAt = body.stoppedAt;

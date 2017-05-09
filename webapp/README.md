@@ -32,7 +32,7 @@ curl -v \
  \"height\": \"720\", \
  \"archiveURL\": \"https://example.com/archive\", \
  \"css_preset\": \"horizontalPresentation\"}" \
- http://localhost:3000/job
+ http://localhost:3000/barc/job
 ```
 
 If a job is accepted to the service queue, you will receive a job ID and access
@@ -40,7 +40,7 @@ token for fetching job progress and results in the future.
 **Do not lose this data**.
 
 ```json
-{"job_id":132,"access_token":"GxgApnuNQVHN6GWJ0vPNn0nBTUn5unxE"}
+{"job_id":"2a925d27","access_token":"GxgApnuNQVHN6GWJ0vPNn0nBTUn5unxE"}
 ```
 
 ### Acceptable job arguments
@@ -79,9 +79,13 @@ Query paremeters:
 
 Response keys:
 * `status`: the status of the job, as reported by the encoder
-* `clusterStatus`: the status of the job's task, as reported by the cluster
+  - `accepted`: the request for this job was valid and is waiting for an
+    instance to run
+  - `launched`: the job has begun running on the cluster
+  - `error`: something bad happened
+  - `complete`: job completes successfully
 * `progress`: a number between 0 and 100, representing the estimated completion.
-* `createdAt`: timestamp when this job was created
+* `createdAt`: timestamp when this job was passed to the cluster
 * `startedAt`: timestamp when this job began running on the cluster
 * `stoppedAt`: timestamp when this job stopped running on the cluster
 
@@ -89,25 +93,8 @@ Response keys:
 ### Example
 
 ```sh
- curl -v "http://localhost:3000/job/123?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO"
-*   Trying ::1...
-* TCP_NODELAY set
-* Connected to localhost (::1) port 3000 (#0)
-> GET /job/123?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO HTTP/1.1
-> Host: localhost:3000
-> User-Agent: curl/7.51.0
-> Accept: */*
->
-< HTTP/1.1 200 OK
-< X-Powered-By: Express
-< Content-Type: application/json; charset=utf-8
-< Content-Length: 53
-< ETag: W/"35-bNLEUp4OJZaaQgQiZ/5Lvg"
-< Date: Sat, 25 Feb 2017 04:16:56 GMT
-< Connection: keep-alive
-<
-* Curl_http_done: called premature == 0
-* Connection #0 to host localhost left intact
+ curl -s "http://localhost:3000/barc/job/1234abcd?token=asdf"
+
 {"job_id":"123","status":"complete","progress":"100"}
 
 ```
@@ -126,41 +113,10 @@ Query parameters:
 ###Examples
 
 ```sh
- curl -v "http://localhost:3000/job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO&redirect=true"
+ curl -s "http://localhost:3000/barc/job/1234abcd/download?token=asdf&redirect=true"
+ # no response
 
-> GET /job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO&redirect=true HTTP/1.1
-> Host: localhost:3000
-> User-Agent: curl/7.51.0
-> Accept: */*
->
-< HTTP/1.1 302 Found
-< X-Powered-By: Express
-< Location: https://s3-us-west-2.amazonaws.com/tb-charley-test.tokbox.com/barc/123/123.mp4?AWSAccessKeyId=AKIAIU6WAU4PRYRHZXFQ&Expires=1487996759&Signature=FBjdnLEiVFPqDFtTbN4gpJrA9hk%3D
-< Vary: Accept
-< Content-Type: text/plain; charset=utf-8
-< Content-Length: 198
-< Date: Sat, 25 Feb 2017 04:10:59 GMT
-< Connection: keep-alive
-<
+curl -v "http://localhost:3000/barc/job/1234abcd/download?token=asdf&redirect=false"
 
-curl -v "http://localhost:3000/job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO&redirect=false"
-*   Trying ::1...
-* TCP_NODELAY set
-* Connected to localhost (::1) port 3000 (#0)
-> GET /job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO&redirect=false HTTP/1.1
-> Host: localhost:3000
-> User-Agent: curl/7.51.0
-> Accept: */*
->
-< HTTP/1.1 200 OK
-< X-Powered-By: Express
-< Content-Type: application/json; charset=utf-8
-< Content-Length: 194
-< ETag: W/"c2-M0efU+7VHTNlTEpB/EO9Ng"
-< Date: Sat, 25 Feb 2017 04:15:36 GMT
-< Connection: keep-alive
-<
-* Curl_http_done: called premature == 0
-* Connection #0 to host localhost left intact
 {"downloadURL":"https://s3-us-west-2.amazonaws.com/tb-charley-test.tokbox.com/barc/123/123.mp4?AWSAccessKeyId=AKIAIU6WAU4PRYRHZXFQ&Expires=1487996736&Signature=Pv%2Br6yXzO4QmUIHjXuaH1mepElY%3D"}
 ```
