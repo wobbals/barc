@@ -71,7 +71,7 @@ router.get('/job/:id/download', async function(req, res) {
     res.status(403).json({"error": "missing or invalid token"});
     return;
   }
-  if (job.status !== "success") {
+  if (job.status !== "complete") {
     res.status(202).json({
       "message": `job status ${job.status}. try again later.`
     });
