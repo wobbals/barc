@@ -36,7 +36,7 @@ router.post('/job', function(req, res) {
       job_data.status = 'queued';
       Job.persist(response.taskId, job_data);
       res.status(202);
-      res.json({job_id: response.taskId, access_token: key_pair.key});
+      res.json({jobId: response.taskId, accessToken: key_pair.key});
     }
   });
 });

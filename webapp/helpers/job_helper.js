@@ -185,29 +185,6 @@ var validateJobToken = function(job, token) {
   return (job.data.secret === calculated_secret);
 }
 
-var getJobStatus = function(job, queue) {
-  var result = {};
-  result.job_id = job.id;
-  var job_state = job.state();
-  if (job_state === "inactive") {
-    result.status = "queued";
-  } else if (job_state === "active") {
-    result.status = "running";
-  } else {
-    result.status = job_state;
-  }
-  if (job.error()) {
-    result.error = job.error();
-  }
-  result.created_at = job.created_at;
-  result.updated_at = job.updated_at;
-  if (job.failed_at) {
-    result.failed_at = job.failed_at;
-  }
-  result.progress = job.progress();
-  return result;
-}
-
 var getJobDownloadURL = function(key) {
   return new Promise((resolve, reject) => {
     var params = {
@@ -227,6 +204,5 @@ var getJobDownloadURL = function(key) {
 }
 
 module.exports.getJobDownloadURL = getJobDownloadURL;
-module.exports.getJobStatus = getJobStatus;
 module.exports.validateJobToken = validateJobToken;
 module.exports.parseJobArgs = parseJobArgs;

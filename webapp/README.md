@@ -31,7 +31,8 @@ curl -v \
 -d "{\"width\": \"1280\", \
  \"height\": \"720\", \
  \"archiveURL\": \"https://example.com/archive\", \
- \"css_preset\": \"horizontalPresentation\"}" \
+ \"css_preset\": \"horizontalPresentation\", \
+ \"version\": \"arapahoe\" }" \
  http://localhost:3000/barc/job
 ```
 
@@ -40,7 +41,7 @@ token for fetching job progress and results in the future.
 **Do not lose this data**.
 
 ```json
-{"job_id":"2a925d27","access_token":"GxgApnuNQVHN6GWJ0vPNn0nBTUn5unxE"}
+{"job_id":"24f7e00c-8b83-458f-8309-d7fbc47dfed5","accessToken":"asdf1234"}
 ```
 
 ### Acceptable job arguments
