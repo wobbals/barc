@@ -1,5 +1,4 @@
-# This is the Dockerfile for the barc worker, which attaches to the
-# job queue managed in the `webapp/` directory.
+# This is the Dockerfile for the barc CLI tool. It should not have any config.
 FROM ubuntu:latest
 
 # grab first dependencies from apt
@@ -45,20 +44,15 @@ COPY CMakeLists.txt /var/lib/barc/CMakeLists.txt
 COPY barc /var/lib/barc/barc
 COPY test /var/lib/barc/test
 COPY ext /var/lib/barc/ext
+COPY task/index.js /var/lib/barc/task.js
+COPY task/package.json /var/lib/barc/package.json
 
 # build barc binary
 RUN mkdir -p /var/lib/barc/build /var/lib/barc/bin && \
 cd /var/lib/barc/build && \
 cmake .. && \
-make && mv barc ../bin && rm -rf *
+make && mv barc ../bin && cd .. && \
+rm -rf barc test build ext CMakeLists.txt && npm install
 
-# Copy webapp (for worker.js)
-COPY webapp /var/lib/barc/webapp
-WORKDIR /var/lib/barc/webapp
-RUN npm install
-
-ENV PATH=${PATH}:/var/lib/barc/bin
-ENV DEBUG=barc:worker
 ENV LD_LIBRARY_PATH=/usr/local/lib
-
-CMD [ "npm", "run", "worker" ]
+ENV PATH=${PATH}:/var/lib/barc/bin

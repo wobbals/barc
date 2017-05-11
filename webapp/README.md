@@ -13,7 +13,7 @@ This webapp provides a web programmable interface to the barc CLI utility.
 * Start the webserver with `npm start`
 * Start a worker process (or many) with `npm run worker`. One worker will spawn
   one barc process, and work on the queue serially.
-  
+
 ### From Docker
 
 * `docker-compose up --build -d`
@@ -31,16 +31,17 @@ curl -v \
 -d "{\"width\": \"1280\", \
  \"height\": \"720\", \
  \"archiveURL\": \"https://example.com/archive\", \
- \"css_preset\": \"horizontalPresentation\"}" \
- http://localhost:3000/job
+ \"css_preset\": \"horizontalPresentation\", \
+ \"version\": \"arapahoe\" }" \
+ http://localhost:3000/barc/job
 ```
 
 If a job is accepted to the service queue, you will receive a job ID and access
-token for fetching job progress and results in the future. 
+token for fetching job progress and results in the future.
 **Do not lose this data**.
 
 ```json
-{"job_id":132,"access_token":"GxgApnuNQVHN6GWJ0vPNn0nBTUn5unxE"}
+{"job_id":"24f7e00c-8b83-458f-8309-d7fbc47dfed5","accessToken":"asdf1234"}
 ```
 
 ### Acceptable job arguments
@@ -59,7 +60,11 @@ New jobs can use the same arguments as the CLI tool. These include:
   jobs during testing or skipping content you do not wish to keep.
 * `callbackURL` -- A URL where the worker will send a POST after the job is
   completed. Request body will be JSON of the form:
-  `{"job":"30","result":"success"}`
+  `{"jobId":"24f7e00c-8b83-458f-8309-d7fbc47dfed5","status":"complete"}`
+* `version` -- the family of barc processor for this job. currently, this can
+  only be set to `arapahoe`. When future (breaking) changes are released to the
+  processor, a new family will be assigned and used as default. Setting this
+  version should maintain consistent behavior.
 
 ## Monitoring job progress
 
@@ -67,43 +72,33 @@ The recommended method for getting job status is by providing `callbackURL` in
 the request to schedule the job. That said, sometimes it's necessary to
 explicitly check for the progress of a job:
 
-`GET /job/:id`
+`GET /barc/job/:id`
 Gets the status of the job.
 
 Query paremeters:
 * `token` -- required. This was given to when the job was scheduled.
 
 Response keys:
-* `job_id`: hopefully will match that which you requested
-* `status`: one of `complete`, `running`, `queued`, or `failed`
+* `status`: the status of the job, as reported by the encoder
+  - `accepted`: the request for this job was valid and is waiting for an
+    instance to run
+  - `launched`: the task runner for this job has started and is healthy
+  - `processing`: the actual processing job has begun on the task runner. this
+  happens after archive download is complete.
+  - `uploading`: the processor has exited and archive is being uploaded
+  - `complete`: job completes successfully
+  - `error`: something bad happened. usually an `error` key will be available.
 * `progress`: a number between 0 and 100, representing the estimated completion.
-* `created_at`: timestamp when this job was created
-* `updated_at`: timestamp when job status was last updated
-* `failed_at`: timestamp when this job failed (if applicable)
+* `createdAt`: timestamp when this job was passed to the cluster
+* `startedAt`: timestamp when this job began running on the cluster
+* `stoppedAt`: timestamp when this job stopped running on the cluster
 
 
 ### Example
 
 ```sh
- curl -v "http://localhost:3000/job/123?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO"
-*   Trying ::1...
-* TCP_NODELAY set
-* Connected to localhost (::1) port 3000 (#0)
-> GET /job/123?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO HTTP/1.1
-> Host: localhost:3000
-> User-Agent: curl/7.51.0
-> Accept: */*
-> 
-< HTTP/1.1 200 OK
-< X-Powered-By: Express
-< Content-Type: application/json; charset=utf-8
-< Content-Length: 53
-< ETag: W/"35-bNLEUp4OJZaaQgQiZ/5Lvg"
-< Date: Sat, 25 Feb 2017 04:16:56 GMT
-< Connection: keep-alive
-< 
-* Curl_http_done: called premature == 0
-* Connection #0 to host localhost left intact
+ curl -s "http://localhost:3000/barc/job/1234abcd?token=asdf"
+
 {"job_id":"123","status":"complete","progress":"100"}
 
 ```
@@ -122,41 +117,10 @@ Query parameters:
 ###Examples
 
 ```sh
- curl -v "http://localhost:3000/job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO&redirect=true"
+ curl -s "http://localhost:3000/barc/job/1234abcd/download?token=asdf&redirect=true"
+ # no response
 
-> GET /job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO&redirect=true HTTP/1.1
-> Host: localhost:3000
-> User-Agent: curl/7.51.0
-> Accept: */*
-> 
-< HTTP/1.1 302 Found
-< X-Powered-By: Express
-< Location: https://s3-us-west-2.amazonaws.com/tb-charley-test.tokbox.com/barc/123/123.mp4?AWSAccessKeyId=AKIAIU6WAU4PRYRHZXFQ&Expires=1487996759&Signature=FBjdnLEiVFPqDFtTbN4gpJrA9hk%3D
-< Vary: Accept
-< Content-Type: text/plain; charset=utf-8
-< Content-Length: 198
-< Date: Sat, 25 Feb 2017 04:10:59 GMT
-< Connection: keep-alive
-< 
+curl -v "http://localhost:3000/barc/job/1234abcd/download?token=asdf&redirect=false"
 
-curl -v "http://localhost:3000/job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO&redirect=false"
-*   Trying ::1...
-* TCP_NODELAY set
-* Connected to localhost (::1) port 3000 (#0)
-> GET /job/123/download?token=h5P7jpDOLke0VoYtDHKzMQPLRr1JJFtO&redirect=false HTTP/1.1
-> Host: localhost:3000
-> User-Agent: curl/7.51.0
-> Accept: */*
-> 
-< HTTP/1.1 200 OK
-< X-Powered-By: Express
-< Content-Type: application/json; charset=utf-8
-< Content-Length: 194
-< ETag: W/"c2-M0efU+7VHTNlTEpB/EO9Ng"
-< Date: Sat, 25 Feb 2017 04:15:36 GMT
-< Connection: keep-alive
-< 
-* Curl_http_done: called premature == 0
-* Connection #0 to host localhost left intact
 {"downloadURL":"https://s3-us-west-2.amazonaws.com/tb-charley-test.tokbox.com/barc/123/123.mp4?AWSAccessKeyId=AKIAIU6WAU4PRYRHZXFQ&Expires=1487996736&Signature=Pv%2Br6yXzO4QmUIHjXuaH1mepElY%3D"}
 ```

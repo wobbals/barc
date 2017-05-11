@@ -169,7 +169,8 @@ int magic_frame_add(MagickWand* output_wand,
     }
 
     MagickSetImageBackgroundColor(input_wand, background);
-    MagickResizeImage(input_wand, scaled_width, scaled_height, CubicFilter);
+    MagickResizeImage(input_wand, scaled_width, scaled_height,
+                      Lanczos2SharpFilter);
     // TODO: we should use extent without resizing for for object-fill: none.
     if (rescale_dimensions) {
         MagickExtentImage(input_wand, output_width, output_height,

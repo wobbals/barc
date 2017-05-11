@@ -25,6 +25,11 @@ pkg_check_modules (LIBUV REQUIRED libuv)
 pkg_check_modules (LIBZIP REQUIRED libzip)
 pkg_check_modules (LIBJANSSON REQUIRED jansson)
 
+# Curl is in like 4 different places on different OSes I've looked at. 
+# lazily attempt to load it but don't sweat it if there's a failure.
+# This seems to work fine on a few linuxes and OSX
+pkg_check_modules (LIBCURL curl)
+
 # Repair broken -framework flags from pkg_check_modules
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   function(repair_framework_flags BAD_FLAG)
@@ -51,6 +56,7 @@ link_libraries (${LIBSWRESAMPLE_LDFLAGS})
 link_libraries (${LIBUV_LDFLAGS})
 link_libraries (${LIBZIP_LDFLAGS})
 link_libraries (${LIBJANSSON_LDFLAGS})
+link_libraries (curl)
 
 include_directories (
   ${PROJECT_SOURCE_DIR}/ext
@@ -64,6 +70,7 @@ include_directories (
   ${LIBUV_INCLUDE_DIRS}
   ${LIBZIP_INCLUDE_DIRS}
   ${LIBJANSSON_INCLUDE_DIRS}
+  ${LIBCURL_INCLUDE_DIRS}
 )
 
 # This comes at the end of all the linking commands issued above.

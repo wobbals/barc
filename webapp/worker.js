@@ -5,7 +5,6 @@ const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
 
-var https = require('https');
 var request = require('request');
 var progress = require('request-progress');
 var validator = require('validator');

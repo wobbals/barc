@@ -19,7 +19,15 @@
     "pip",
     "auto"
   ],
-  "debug_queue": true,
+  "debug_queue": false,
+  "use_https": false,
   "clean_artifacts": true,
-  "secret_token_length": 32
+  "secret_token_length": 32,
+  "default_task_version":"arapahoe",
+  "task_versions": {
+    "arapahoe": {
+      "task":"barc-arapahoe",
+      "container":"barc-task"
+    }
+  }
 }

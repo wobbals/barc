@@ -7,17 +7,8 @@ var bodyParser = require('body-parser');
 var app = express();
 var debug = require('debug')('barc:worker');
 var config = require('config');
-var kue = require('kue');
 
 var routes = require('./routes/index');
-
-// NB this must come after including index.js, which creates and configures
-// the first call to kue.createQueue. 
-if (config.get("debug_queue")) {
-  // optional: setup kue monitoring/debugging webapp
-  debug("Kue admin listening on port 3001");
-  kue.app.listen(3001);
-}
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -31,7 +22,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', routes);
+// Move resources to /barc - we don't have fancy proxy rewrites :-(
+app.use('/barc', routes);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

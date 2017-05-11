@@ -167,7 +167,7 @@ int video_mixer_async_push_frame(struct video_mixer_s* pthis,
   populate_stream_coords(pthis);
   // z sort only after layout manager has run
   std::sort(pthis->streams.begin(), pthis->streams.end(), z_index_sort);
-  std::reverse(pthis->streams.begin(), pthis->streams.end());
+  //std::reverse(pthis->streams.begin(), pthis->streams.end());
 
   struct frame_builder_callback_data_t* callback_data =
   (struct frame_builder_callback_data_t*)

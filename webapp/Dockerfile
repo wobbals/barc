@@ -1,4 +1,4 @@
-FROM node:boron
+FROM node:alpine
 
 # Create app directory
 RUN mkdir -p /usr/src/app
@@ -11,6 +11,6 @@ RUN npm install
 # Bundle app source
 COPY . /usr/src/app
 
-EXPOSE 443
+EXPOSE 3000
 
 CMD [ "npm", "start" ]
