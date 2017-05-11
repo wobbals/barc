@@ -14,7 +14,7 @@ extern "C" {
 #include "archive_package.h"
 #include "archive_manifest.h"
 #include "source_container.h"
-#include "file_media_source.h"
+#include "webm_source.h"
 #include "image_source.h"
 #include "barc.h"
 }
@@ -140,15 +140,15 @@ static void open_manifest_item(const struct archive_manifest_s* manifest,
   struct source_s* source = NULL;
   int ret = 0;
   if (ends_with(file->filename, ".webm")) {
-    struct file_media_source_s* file_source;
-    ret = file_media_source_open(&file_source, file->filename,
+    struct webm_source_s* file_source;
+    ret = webm_source_open(&file_source, file->filename,
                                      file->start_time_offset,
                                      file->stop_time_offset,
                                      file->stream_id,
                                      file->stream_class);
-    source = file_media_source_get_container(file_source);
+    source = webm_source_get_container(file_source);
     if (pthis->begin_offset > 0) {
-      file_media_source_seek(file_source, pthis->begin_offset);
+      webm_source_seek(file_source, pthis->begin_offset);
     }
   } else {
     printf("%s does not look like a webm. attempting to open as an image\n",

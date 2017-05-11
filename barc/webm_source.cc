@@ -1,5 +1,5 @@
 //
-//  file_media_source.c
+//  webm_source.c
 //  barc
 //
 //  Created by Charley Robinson on 3/13/17.
@@ -11,7 +11,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavutil/opt.h>
 #include "file_audio_source.h"
-#include "file_media_source.h"
+#include "webm_source.h"
 #include "source_container.h"
 }
 
@@ -29,7 +29,7 @@ AV_ERROR_MAX_STRING_SIZE, errnum)
 // we know this to be true from documentation, it's not discoverable :-(
 static const AVRational archive_manifest_timebase = { 1, 1000 };
 
-static void setup_media_stream(struct file_media_source_s* pthis);
+static void setup_media_stream(struct webm_source_s* pthis);
 int video_read_callback(struct media_stream_s* stream,
                         struct smart_frame_t** frame_out,
                         double time_clock,
@@ -47,7 +47,7 @@ void free_f(void* p);
  * via struct file_audio_source_s. A reasonable TODO is to strip the video
  * into it's own handler and use this struct as a contianer for each.
  */
-struct file_media_source_s {
+struct webm_source_s {
   const char* filename;
   // file source attributes
   double start_offset;
@@ -69,10 +69,10 @@ struct file_media_source_s {
   struct source_s* container;
 };
 
-int file_media_source_alloc(struct file_media_source_s** media_source_out)
+int webm_source_alloc(struct webm_source_s** media_source_out)
 {
-  struct file_media_source_s* pthis = (struct file_media_source_s*)
-  calloc(1, sizeof(struct file_media_source_s));
+  struct webm_source_s* pthis = (struct webm_source_s*)
+  calloc(1, sizeof(struct webm_source_s));
   media_stream_alloc(&pthis->media_stream);
   pthis->video_fifo = std::queue<struct smart_frame_t*>();
   file_audio_source_alloc(&pthis->audio_source);
@@ -82,7 +82,7 @@ int file_media_source_alloc(struct file_media_source_s** media_source_out)
   return 0;
 }
 
-void file_media_source_free(struct file_media_source_s* pthis) {
+void webm_source_free(struct webm_source_s* pthis) {
   while (!pthis->video_fifo.empty()) {
     smart_frame_release(pthis->video_fifo.front());
     pthis->video_fifo.pop();
@@ -94,7 +94,7 @@ void file_media_source_free(struct file_media_source_s* pthis) {
   free(pthis);
 }
 
-int file_media_source_seek(struct file_media_source_s* pthis,
+int webm_source_seek(struct webm_source_s* pthis,
                            double to_time)
 {
   // seek audio source
@@ -155,7 +155,7 @@ static inline int64_t samples_per_pts(int sample_rate, int64_t pts,
  * extra data in a fifo. Sometimes this causes memory to run away, so instead
  * we just read the same input file twice.
  */
-static int read_video_frame(struct file_media_source_s* pthis)
+static int read_video_frame(struct webm_source_s* pthis)
 {
   int ret, got_frame = 0;
   AVPacket packet = { 0 };
@@ -199,18 +199,18 @@ static int read_video_frame(struct file_media_source_s* pthis)
   return !got_frame;
 }
 
-int file_media_source_open(struct file_media_source_s** source_out,
+int webm_source_open(struct webm_source_s** source_out,
                            const char *filename,
                            double start_offset, double stop_offset,
                            const char* stream_name,
                            const char* stream_class)
 {
-  int ret = file_media_source_alloc(source_out);
+  int ret = webm_source_alloc(source_out);
   if (ret) {
     printf("Could not allocate new stream");
     return ret;
   }
-  struct file_media_source_s* pthis = *source_out;
+  struct webm_source_s* pthis = *source_out;
   pthis->start_offset = start_offset;
   pthis->stop_offset = stop_offset;
   pthis->filename = filename;
@@ -244,28 +244,28 @@ int file_media_source_open(struct file_media_source_s** source_out,
   return 0;
 }
 
-int file_stream_is_active_at_time(struct file_media_source_s* pthis,
+int file_stream_is_active_at_time(struct webm_source_s* pthis,
                                   double clock_time)
 {
   return (pthis->start_offset <= clock_time &&
           clock_time < pthis->stop_offset);
 }
 
-double file_stream_get_stop_offset(struct file_media_source_s* pthis)
+double file_stream_get_stop_offset(struct webm_source_s* pthis)
 {
   // don't forget to update this when seek method is called and video has it's
   // own class!
   return pthis->stop_offset - pthis->global_seek_offset;
 }
 
-struct media_stream_s* file_media_source_get_stream
-(struct file_media_source_s* source)
+struct media_stream_s* webm_source_get_stream
+(struct webm_source_s* source)
 {
   return source->media_stream;
 }
 
 #pragma mark - Internal utils
-static int ensure_video_frame(struct file_media_source_s* stream)
+static int ensure_video_frame(struct webm_source_s* stream)
 {
   int ret = 0;
   if (stream->video_fifo.empty()) {
@@ -274,13 +274,13 @@ static int ensure_video_frame(struct file_media_source_s* stream)
   return ret;
 }
 
-static void setup_media_stream(struct file_media_source_s* pthis) {
+static void setup_media_stream(struct webm_source_s* pthis) {
   media_stream_set_video_read(pthis->media_stream, video_read_callback, pthis);
   media_stream_set_audio_read(pthis->media_stream, audio_read_callback, pthis);
 }
 
 // convert frame time to global time, including local offset
-static double video_pts_to_global_time(struct file_media_source_s* pthis,
+static double video_pts_to_global_time(struct webm_source_s* pthis,
                                        AVFrame* frame)
 {
   double result = ((double)frame->pts) / (double)
@@ -297,7 +297,7 @@ int video_read_callback(struct media_stream_s* stream,
                         double time_clock,
                         void* p)
 {
-  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  struct webm_source_s* pthis = (struct webm_source_s*)p;
   time_clock += pthis->global_seek_offset;
   int ret = ensure_video_frame(pthis);
   if (ret) {
@@ -336,7 +336,7 @@ int audio_read_callback(struct media_stream_s* stream,
                         AVFrame* frame, double clock_time,
                         void* p)
 {
-  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  struct webm_source_s* pthis = (struct webm_source_s*)p;
   int ret = 0;
 
   double audio_time =
@@ -361,28 +361,28 @@ int audio_read_callback(struct media_stream_s* stream,
 
 #pragma mark - Container callbacks
 
-struct source_s* file_media_source_get_container(struct file_media_source_s* p)
+struct source_s* webm_source_get_container(struct webm_source_s* p)
 {
   return p->container;
 }
 
 int is_active(void* p, double clock_time) {
-  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  struct webm_source_s* pthis = (struct webm_source_s*)p;
   return (pthis->start_offset <= clock_time &&
           clock_time < pthis->stop_offset);
 }
 
 double get_stop_offset(void* p) {
-  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  struct webm_source_s* pthis = (struct webm_source_s*)p;
   return pthis->stop_offset;
 }
 
 struct media_stream_s* get_media_stream(void* p) {
-  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  struct webm_source_s* pthis = (struct webm_source_s*)p;
   return pthis->media_stream;
 }
 
 void free_f(void* p) {
-  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
-  file_media_source_free(pthis);
+  struct webm_source_s* pthis = (struct webm_source_s*)p;
+  webm_source_free(pthis);
 }
