@@ -243,7 +243,11 @@ var tryPostback = function(message) {
   };
   debug(`tryPostback: ${JSON.stringify(postback_options)}`);
   request(postback_options, function(error, response, body) {
-    debug(`Postback to ${callbackURL} returned code ${response.statusCode}`);
+    if (error) {
+      debug(`Postback to ${callbackURL} returned error ${error}`);
+    } else {
+      debug(`Postback to ${callbackURL} returned code ${response.statusCode}`);
+    }
   });
 }
 
