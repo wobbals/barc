@@ -19,14 +19,14 @@ WORKDIR /var/lib/barc/ext
 RUN git clone https://github.com/ImageMagick/ImageMagick.git && \
 cd ImageMagick && \
 git checkout 7.0.4-5 && \
-./configure && \
+./configure '--with-png=yes' '--with-jpeg=yes' && \
 make && \
 make install && \
 cd .. && rm -rf ImageMagick
 
 # Build deps: 2 of 2 - FFmpeg
 
-WORKDIR /var/lib/barc/ext 
+WORKDIR /var/lib/barc/ext
 RUN git clone https://github.com/FFmpeg/FFmpeg.git && \
 cd FFmpeg && \
 git checkout n3.2.4 && \

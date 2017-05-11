@@ -12,6 +12,7 @@ extern "C" {
 #include <libavutil/opt.h>
 #include "file_audio_source.h"
 #include "file_media_source.h"
+#include "source_container.h"
 }
 
 #include <deque>
@@ -36,7 +37,16 @@ int video_read_callback(struct media_stream_s* stream,
 int audio_read_callback(struct media_stream_s* stream,
                         AVFrame* frame, double clock_time,
                         void* p);
-  
+int is_active(void* p, double clock_time);
+double get_stop_offset(void* p);
+struct media_stream_s* get_media_stream(void* p);
+void free_f(void* p);
+
+/**
+ * Media source contains handling for video (currently in this file) and audio
+ * via struct file_audio_source_s. A reasonable TODO is to strip the video
+ * into it's own handler and use this struct as a contianer for each.
+ */
 struct file_media_source_s {
   const char* filename;
   // file source attributes
@@ -56,6 +66,7 @@ struct file_media_source_s {
   std::queue<struct smart_frame_t*> video_fifo;
 
   struct media_stream_s* media_stream;
+  struct source_s* container;
 };
 
 int file_media_source_alloc(struct file_media_source_s** media_source_out)
@@ -65,6 +76,8 @@ int file_media_source_alloc(struct file_media_source_s** media_source_out)
   media_stream_alloc(&pthis->media_stream);
   pthis->video_fifo = std::queue<struct smart_frame_t*>();
   file_audio_source_alloc(&pthis->audio_source);
+  source_create(&pthis->container, is_active, get_stop_offset,
+                get_media_stream, free_f, pthis);
   *media_source_out = pthis;
   return 0;
 }
@@ -344,4 +357,32 @@ int audio_read_callback(struct media_stream_s* stream,
                                    frame->nb_samples,
                                    (int16_t*)frame->data[0]);
   return ret;
+}
+
+#pragma mark - Container callbacks
+
+struct source_s* file_media_source_get_container(struct file_media_source_s* p)
+{
+  return p->container;
+}
+
+int is_active(void* p, double clock_time) {
+  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  return (pthis->start_offset <= clock_time &&
+          clock_time < pthis->stop_offset);
+}
+
+double get_stop_offset(void* p) {
+  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  return pthis->stop_offset;
+}
+
+struct media_stream_s* get_media_stream(void* p) {
+  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  return pthis->media_stream;
+}
+
+void free_f(void* p) {
+  struct file_media_source_s* pthis = (struct file_media_source_s*)p;
+  file_media_source_free(pthis);
 }

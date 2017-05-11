@@ -70,10 +70,10 @@ int parse_file(struct manifest_file_s* file, json_t* json) {
   file->stop_time_offset =
   (double) json_number_value(node) / MANIFEST_TIME_BASE;
 
+  // optional field
   node = json_object_get(json, "size");
   if (!json_is_number(node)) {
     printf("unable to parse size!\n");
-    return -1;
   }
   file->size = (double) json_number_value(node);
 

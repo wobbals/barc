@@ -25,4 +25,5 @@ int file_stream_is_active_at_time(struct file_media_source_s* media_source,
 double file_stream_get_stop_offset(struct file_media_source_s* media_source);
 struct media_stream_s* file_media_source_get_stream
 (struct file_media_source_s* source);
+struct source_s* file_media_source_get_container(struct file_media_source_s* p);
 #endif /* file_media_source_h */

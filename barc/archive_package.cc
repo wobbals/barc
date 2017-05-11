@@ -13,7 +13,9 @@ extern "C" {
 
 #include "archive_package.h"
 #include "archive_manifest.h"
+#include "source_container.h"
 #include "file_media_source.h"
+#include "image_source.h"
 #include "barc.h"
 }
 
@@ -23,7 +25,7 @@ extern "C" {
 
 struct archive_s {
   struct barc_s* barc;
-  std::vector<struct file_media_source_s*> sources;
+  std::vector<struct source_s*> sources;
   std::vector<const struct layout_event_s*> events;
   const char* source_path;
   double begin_offset;
@@ -42,14 +44,14 @@ void archive_alloc(struct archive_s** archive_out) {
   calloc(1, sizeof(struct archive_s));
   barc_alloc(&archive->barc);
   archive_manifest_alloc(&archive->manifest);
-  archive->sources = std::vector<struct file_media_source_s*>();
+  archive->sources = std::vector<struct source_s*>();
   archive->events = std::vector<const struct layout_event_s*>();
   *archive_out = archive;
 }
 
 void archive_free(struct archive_s* archive) {
-  for (struct file_media_source_s* source : archive->sources) {
-    file_media_source_free(source);
+  for (struct source_s* source : archive->sources) {
+    source_free(source);
   }
   barc_free(archive->barc);
   archive_manifest_free(archive->manifest);
@@ -120,23 +122,52 @@ int globerr(const char *path, int eerrno)
     return 0;	/* let glob() keep going */
 }
 
+int ends_with(const char *str, const char *suffix)
+{
+  if (!str || !suffix)
+    return 0;
+  size_t lenstr = strlen(str);
+  size_t lensuffix = strlen(suffix);
+  if (lensuffix >  lenstr)
+    return 0;
+  return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
+}
+
 static void open_manifest_item(const struct archive_manifest_s* manifest,
                                const struct manifest_file_s* file, void* p)
 {
   struct archive_s* pthis = (struct archive_s*)p;
-  struct file_media_source_s* file_source;
-  int ret = file_media_source_open(&file_source, file->filename,
-                                   file->start_time_offset,
-                                   file->stop_time_offset,
-                                   file->stream_id,
-                                   file->stream_class);
+  struct source_s* source = NULL;
+  int ret = 0;
+  if (ends_with(file->filename, ".webm")) {
+    struct file_media_source_s* file_source;
+    ret = file_media_source_open(&file_source, file->filename,
+                                     file->start_time_offset,
+                                     file->stop_time_offset,
+                                     file->stream_id,
+                                     file->stream_class);
+    source = file_media_source_get_container(file_source);
+    if (pthis->begin_offset > 0) {
+      file_media_source_seek(file_source, pthis->begin_offset);
+    }
+  } else {
+    printf("%s does not look like a webm. attempting to open as an image\n",
+           file->filename);
+    struct image_source_s* image_source;
+    ret = image_source_create(&image_source, file->filename,
+                              file->start_time_offset,
+                              file->stop_time_offset,
+                              file->stream_id,
+                              file->stream_class);
+    source = image_source_get_container(image_source);
+  }
   if (ret) {
     printf("failed to open archive stream source %s\n", file->filename);
     return;
   }
-  pthis->sources.push_back(file_source);
-  if (pthis->begin_offset > 0) {
-    file_media_source_seek(file_source, pthis->begin_offset);
+
+  if (source) {
+    pthis->sources.push_back(source);
   }
   printf("opened archive stream source %s\n", file->filename);
 }
@@ -185,10 +216,10 @@ static int archive_open(struct archive_s* archive)
 static double archive_get_finish_clock_time(struct archive_s* archive)
 {
     double finish_time = 0;
-    for (struct file_media_source_s* source : archive->sources)
+    for (struct source_s* source : archive->sources)
     {
-        if (finish_time < file_stream_get_stop_offset(source)) {
-            finish_time = file_stream_get_stop_offset(source);
+        if (finish_time < source_get_stop_offset(source)) {
+            finish_time = source_get_stop_offset(source);
         }
     }
     return finish_time;
@@ -197,11 +228,10 @@ static double archive_get_finish_clock_time(struct archive_s* archive)
 static int setup_streams_for_tick(struct archive_s* archive, double clock_time)
 {
   // find any streams that should present content on this tick
-  for (struct file_media_source_s* stream : archive->sources) {
+  for (struct source_s* stream : archive->sources) {
     struct barc_source_s barc_source;
-    barc_source.media_stream = file_media_source_get_stream(stream);
-    if (file_stream_is_active_at_time(stream,
-                                      clock_time + archive->begin_offset))
+    barc_source.media_stream = source_get_media_stream(stream);
+    if (source_is_active_at_time(stream, clock_time + archive->begin_offset))
     {
       barc_add_source(archive->barc, &barc_source);
     } else {
@@ -218,8 +248,8 @@ static void handle_layout_event(struct archive_s* pthis,
     barc_set_css_preset(pthis->barc, event->layout_changed.type);
     barc_set_custom_css(pthis->barc, event->layout_changed.stylesheet);
   } else if (stream_changed_event == event->action) {
-    for (struct file_media_source_s* source : pthis->sources) {
-      struct media_stream_s* stream = file_media_source_get_stream(source);
+    for (struct source_s* source : pthis->sources) {
+      struct media_stream_s* stream = source_get_media_stream(source);
       const char* stream_id = media_stream_get_name(stream);
       if (!strcmp(stream_id, event->stream_changed.stream_id)) {
         media_stream_set_class(stream, event->stream_changed.layout_class);
