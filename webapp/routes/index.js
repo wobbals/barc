@@ -98,14 +98,4 @@ router.get('/job/:id/download', async function(req, res) {
   }
 });
 
-// TODO: This function needs some form of access control
-router.post('/job/callback', (req, res) => {
-  try {
-    job_helper.handlePostback(req.body);
-  } catch (e) {
-    debug(e);
-  }
-  res.status(204).send();
-});
-
 module.exports = router;
