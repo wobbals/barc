@@ -28,6 +28,8 @@ See [Developers](Developers.md)
 
 ## Usage: web
 
+See [WebAPI](WebAPI.md)
+
 A demo server is available for OpenTok customers. To process an individual
 stream archive, send an HTTP POST to https://kennel.wobbals.com/barc/job with
 the parameters of your job:
