@@ -52,7 +52,6 @@ int media_stream_free(struct media_stream_s* stream);
 
 #pragma mark - Fetching media
 
-void media_stream_set_current_time(struct media_stream_s* stream, double clock);
 int archive_stream_get_video_for_time(struct media_stream_s* stream,
                                       struct smart_frame_t** frame,
                                       double clock_time);

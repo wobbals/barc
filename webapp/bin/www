@@ -5,6 +5,7 @@
  */
 
 var app = require('../app');
+var app_internal = require('../app_internal');
 var debug = require('debug')('webapp:server');
 var http = require('http');
 var https = require('https');
@@ -18,10 +19,12 @@ const fs = require('fs');
 var port = normalizePort(process.env.PORT || '3000');
 app.set('port', port);
 
+var internal_port = normalizePort(process.env.INTERNAL_PORT || '3001');
+app_internal.set('port', internal_port);
+
 /**
  * Create HTTP server.
  */
-
 
 /**
  * Listen on provided port, on all network interfaces.
@@ -42,6 +45,11 @@ if (config.get("use_https")) {
   server.on('error', onError);
   server.on('listening', onListening);
 }
+
+var server_internal = http.createServer(app_internal);
+server.listen(internal_port);
+server.on('error', onError);
+server.on('listening', onListening);
 
 /**
  * Normalize a port into a number, string, or false.

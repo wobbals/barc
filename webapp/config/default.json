@@ -28,6 +28,10 @@
     "arapahoe": {
       "task":"barc-arapahoe",
       "container":"barc-task"
+    },
+    "breckenridge": {
+      "task":"barc-breckenridge",
+      "container":"barc-task"
     }
   }
 }
