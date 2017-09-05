@@ -55,6 +55,10 @@ make && mv barc ../bin && rm -rf *
 # Copy webapp (for worker.js)
 COPY webapp /var/lib/barc/webapp
 WORKDIR /var/lib/barc/webapp
+
+RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - && \
+apt-get install nodejs
+
 RUN npm install
 
 ENV PATH=${PATH}:/var/lib/barc/bin

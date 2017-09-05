@@ -1,3 +1,37 @@
+# Development environment
+
+## Cloning repo and submodules
+
+This repo has included submodules, please clone it with `--recursive` flag.
+
+```
+git clone https://github.com/wobbals/barc.git --recursive
+```
+
+## Prepare config
+
+Copy `webapp/config/local.json.example` to `webapp/config/local.json`
+
+```
+cp webapp/config/local.json.example webapp/config/local.json
+```
+
+## Docker Compose usage
+
+* From the root of this repository, build the container: 
+
+```
+docker-compose build
+```
+
+* Run containers
+```
+docker-compose up -d
+```
+
+* Open `http://localhost:11500/barc` in your browser to check working
+
+* Use `http://localhost:11500/barc/job` to put your jobs
 
 # Building
 
@@ -36,12 +70,6 @@ make
 ```
 
 Binary will be available in your `build` directory. Have at it!
-
-# Running from Docker
-
-* From the root of this repository, build the containter: 
-  `docker build -t barc-worker .`
-* Run the container: `docker run -d --name barc-worker barc-worker`
 
 # Usage
 
