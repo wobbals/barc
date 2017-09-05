@@ -7,7 +7,7 @@ RUN apt-get update && \
 apt-get install -y cmake libuv1 libuv1-dev libjansson4 libjansson-dev \
 libzip4 libzip-dev git clang automake autoconf libx264-dev libopus-dev yasm \
 pkg-config curl libcurl4-gnutls-dev && \
-curl -sL https://deb.nodesource.com/setup_6.x | bash - && \
+curl -sL https://deb.nodesource.com/setup_8.x | bash - && \
 apt-get install nodejs && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
@@ -55,9 +55,6 @@ make && mv barc ../bin && rm -rf *
 # Copy webapp (for worker.js)
 COPY webapp /var/lib/barc/webapp
 WORKDIR /var/lib/barc/webapp
-
-RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - && \
-apt-get install nodejs
 
 RUN npm install
 
