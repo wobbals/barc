@@ -4,10 +4,13 @@ services:
 
   barc-worker:
     build: .
+    volumes:
+      - "./shared:/shared"
     links:
       - "redis"
     environment:
       - REDIS_HOST=redis
+    container_name: "demio-barc-worker"
 
   barc-ws:
     build: "./webapp/"
@@ -21,6 +24,7 @@ services:
       - PORT=443
       - DEBUG=webapp:*
       - REDIS_HOST=redis
+    container_name: "demio-barc-ws"
   
   redis:
     image: redis
