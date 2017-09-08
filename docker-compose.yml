@@ -10,7 +10,7 @@ services:
       - "redis"
     environment:
       - REDIS_HOST=redis
-    container_name: "demio-barc-worker"
+    container_name: "barc-worker"
 
   barc-ws:
     build: "./webapp/"
@@ -24,7 +24,7 @@ services:
       - PORT=443
       - DEBUG=webapp:*
       - REDIS_HOST=redis
-    container_name: "demio-barc-ws"
+    container_name: "barc-ws"
   
   redis:
     image: redis
