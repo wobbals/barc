@@ -1,0 +1,30 @@
+version: '3.3'
+
+services:
+
+  barc-worker:
+    build: .
+    volumes:
+      - "./shared:/shared"
+    links:
+      - "redis"
+    environment:
+      - REDIS_HOST=redis
+    container_name: "barc-worker"
+
+  barc-ws:
+    build: "./webapp/"
+    volumes:
+      - "./webapp/bin/www:/src/bin/www"
+    ports:
+      - "11500:443"
+    links:
+      - "redis"
+    environment:
+      - PORT=443
+      - DEBUG=webapp:*
+      - REDIS_HOST=redis
+    container_name: "barc-ws"
+  
+  redis:
+    image: redis
