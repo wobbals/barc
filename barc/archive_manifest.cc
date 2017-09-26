@@ -285,14 +285,14 @@ int archive_manifest_parse(struct archive_manifest_s* pthis,
 
   node = json_object_get(json, "name");
   if (!json_is_string(node)) {
-    printf("warning: unable to parse archive id!\n");
+    printf("warning: unable to parse archive name!\n");
     return -1;
   }
   pthis->name = json_string_value(node);
 
   node = json_object_get(json, "sessionId");
   if (!json_is_string(node)) {
-    printf("warning: unable to parse archive id!\n");
+    printf("warning: unable to parse session id!\n");
     return -1;
   }
 

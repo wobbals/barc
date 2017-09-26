@@ -139,7 +139,8 @@ static void open_manifest_item(const struct archive_manifest_s* manifest,
   struct archive_s* pthis = (struct archive_s*)p;
   struct source_s* source = NULL;
   int ret = 0;
-  if (ends_with(file->filename, ".webm")) {
+  if (ends_with(file->filename, ".webm") ||
+      ends_with(file->filename, ".mkv")) {
     struct webm_source_s* file_source;
     ret = webm_source_open(&file_source, file->filename,
                                      file->start_time_offset,
