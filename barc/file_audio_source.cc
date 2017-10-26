@@ -265,26 +265,31 @@ static int audio_frame_fifo_pop(struct file_audio_source_s* pthis) {
 static void check_frame_sync(struct file_audio_source_s* pthis,
                              AVFrame* frame)
 {
-  //convert frame pts, check it against the current head time
+  //convert frame pts, check it against the current queue head time
   double sample_fifo_duration =
   (double)av_audio_fifo_size(pthis->audio_sample_fifo) /
   pthis->codec_context->time_base.den;
   AVStream* this_stream = pthis->format_context->streams[pthis->stream_index];
-  double frame_time = (double)frame->pts / this_stream->time_base.den;
-#define FRAME_SYNC_THRESHOLD 0.25 // what value shoud this be?
+  double current_frame_time = (double)frame->pts / this_stream->time_base.den;
+  double sample_tail_time = pthis->sample_head_time + sample_fifo_duration;
+  double desync_time = current_frame_time - sample_tail_time;
+#define FRAME_SYNC_THRESHOLD 0.1 // what value shoud this be?
   // if there's a difference between the time at the end of the sample fifo
   // and the PTS of this frame, insert silence to the sample fifo equal to
   // that difference. this mostly is expected to happen if we are parked over
   // a time where there is no audio in the file stream
-  if (frame_time - (pthis->sample_head_time + sample_fifo_duration) >
-      FRAME_SYNC_THRESHOLD)
-  {
-    double silence_needed = frame_time - (pthis->sample_head_time +
+  if (desync_time > FRAME_SYNC_THRESHOLD) {
+    double silence_needed = current_frame_time - (pthis->sample_head_time +
                                           sample_fifo_duration);
+    printf("lipsync: inject silence for %.02f\n", silence_needed);
     AVFrame* silence = generate_silence(pthis, silence_needed);
     av_audio_fifo_write(pthis->audio_sample_fifo,
                         (void**)silence->data, silence->nb_samples);
     av_frame_unref(silence);
+  } else if (fabs(desync_time) > FRAME_SYNC_THRESHOLD) {
+    // audio frames are growing away from sample_head_time. readjust.
+    printf("lipsync: frame time is off by %.02f\n", desync_time);
+    pthis->sample_head_time = current_frame_time - sample_fifo_duration;
   }
 }
 
