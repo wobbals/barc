@@ -350,6 +350,9 @@ int audio_read_callback(struct media_stream_s* stream,
     file_audio_source_get_next(pthis->audio_source, num_desync_samples, drop_samples);
     // is there an easy way to do this without the malloc cycle?
     free(drop_samples);
+  } else if (audio_time - clock_time > 0.1) {
+    printf("lipsync: audio source ahead of global clock by %.02f\n",
+           audio_time - clock_time);
   }
 
   assert(frame->format == AV_SAMPLE_FMT_S16);
