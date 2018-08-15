@@ -31,8 +31,7 @@ curl -v \
 -d "{\"width\": \"1280\", \
  \"height\": \"720\", \
  \"archiveURL\": \"https://example.com/archive\", \
- \"css_preset\": \"horizontalPresentation\", \
- \"version\": \"arapahoe\" }" \
+ \"css_preset\": \"horizontalPresentation\" }" \
  http://localhost:3000/barc/job
 ```
 
@@ -61,10 +60,6 @@ New jobs can use the same arguments as the CLI tool. These include:
 * `callbackURL` -- A URL where the worker will send a POST after the job is
   completed. Request body will be JSON of the form:
   `{"jobId":"24f7e00c-8b83-458f-8309-d7fbc47dfed5","status":"complete"}`
-* `version` -- the family of barc processor for this job. currently, this can
-  only be set to `arapahoe`. When future (breaking) changes are released to the
-  processor, a new family will be assigned and used as default. Setting this
-  version should maintain consistent behavior.
 
 ## Monitoring job progress
 
