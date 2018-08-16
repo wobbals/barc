@@ -114,7 +114,7 @@ Query parameters:
   URL for download. Otherwise, fetch the temporary url from the response body
   JSON with key `downloadURL`.
 
-###Examples
+### Examples
 
 ```sh
  curl -s "http://localhost:3000/barc/job/1234abcd/download?token=asdf&redirect=true"
